@@ -26,13 +26,8 @@ export default function Page() {
   const [count, setCount] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
 
-  useEffect(() => {
-    try { setSaved(JSON.parse(localStorage.getItem("pulse-saved") || "[]")); } catch {}
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("pulse-saved", JSON.stringify(saved));
-  }, [saved]);
+  useEffect(() => { try { setSaved(JSON.parse(localStorage.getItem("pulse-saved") || "[]")); } catch {} }, []);
+  useEffect(() => { localStorage.setItem("pulse-saved", JSON.stringify(saved)); }, [saved]);
 
   const discovery = index === null ? null : DISCOVERIES[index];
   const isSaved = discovery ? saved.includes(discovery.id) : false;
@@ -48,56 +43,22 @@ export default function Page() {
 
   const toggleSave = () => {
     if (!discovery) return;
-    setSaved(current => current.includes(discovery.id)
-      ? current.filter(id => id !== discovery.id)
-      : [...current, discovery.id]);
+    setSaved(current => current.includes(discovery.id) ? current.filter(id => id !== discovery.id) : [...current, discovery.id]);
   };
 
   return (
     <main className={`app ${transitioning ? "is-pulsing" : ""}`}>
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
-      <header className="topbar">
-        <div className="brand"><span className="brand-mark">P</span><span>Pulse</span></div>
-        <div className="status"><span className="status-dot" /> WORLD DISCOVERY</div>
-      </header>
-
+      <div className="ambient ambient-one" /><div className="ambient ambient-two" />
+      <header className="topbar"><div className="brand"><span className="brand-mark">P</span><span>Pulse</span></div><div className="status"><span className="status-dot" /> WORLD DISCOVERY</div></header>
       <section className="hero">
         {!discovery ? (
-          <div className="landing">
-            <div className="eyebrow"><Sparkles size={14} /> THE UNKNOWN IS CLOSER THAN YOU THINK</div>
-            <h1>Discover<br /><em>something unknown.</em></h1>
-            <p className="subtitle">One tap. One piece of the world you probably didn't know existed.</p>
-            <button className="pulse-button" onClick={pulse} aria-label="Pulse">
-              <span className="pulse-orbit orbit-one" /><span className="pulse-orbit orbit-two" />
-              <span className="pulse-ring ring-one" /><span className="pulse-ring ring-two" />
-              <span className="pulse-core">PULSE</span>
-            </button>
-            <div className="hint">Tap to call something unexpected into view.</div>
-          </div>
+          <div className="landing"><div className="eyebrow"><Sparkles size={14} /> THE UNKNOWN IS CLOSER THAN YOU THINK</div><h1>Discover<br /><em>something unknown.</em></h1><p className="subtitle">One tap. One piece of the world you probably didn't know existed.</p><button className="pulse-button" onClick={pulse} aria-label="Pulse"><span className="pulse-orbit orbit-one" /><span className="pulse-orbit orbit-two" /><span className="pulse-ring ring-one" /><span className="pulse-ring ring-two" /><span className="pulse-core">PULSE</span></button><div className="hint">Tap to call something unexpected into view.</div></div>
         ) : (
-          <article className="discovery" key={discovery.id}>
-            <div className="discovery-image" style={{ backgroundImage: `url(${discovery.image})` }}>
-              <div className="image-shade" />
-              <div className="image-top"><span>{discovery.category}</span><span>PULSE {String(count).padStart(2, "0")}</span></div>
-              <div className="image-copy">
-                <div className="location">{discovery.location}</div>
-                <h2>{discovery.title}</h2>
-              </div>
-            </div>
-
-            <div className="discovery-body">
-              <div className="body-copy"><p>{discovery.body}</p><div className="why"><strong>WHY IT'S INTERESTING</strong><span>{discovery.why}</span></div></div>
-              <div className="discovery-actions">
-                <button className="save-button" onClick={toggleSave}>{isSaved ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}{isSaved ? "Saved" : "Save"}</button>
-                <button className="next-button" onClick={pulse}>Next Pulse <ChevronRight size={18} /></button>
-              </div>
-            </div>
-          </article>
+          <article className="discovery" key={discovery.id}><div className="discovery-image" style={{ backgroundImage: `url(${discovery.image})` }}><div className="image-shade" /><div className="image-top"><span>{discovery.category}</span><span>PULSE {String(count).padStart(2, "0")}</span></div><div className="image-copy"><div className="location">{discovery.location}</div><h2>{discovery.title}</h2></div></div><div className="discovery-body"><div className="body-copy"><p>{discovery.body}</p><div className="why"><strong>WHY IT'S INTERESTING</strong><span>{discovery.why}</span></div></div><div className="discovery-actions"><button className="save-button" onClick={toggleSave}>{isSaved ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}{isSaved ? "Saved" : "Save"}</button><button className="next-button" onClick={pulse}>Next Pulse <ChevronRight size={18} /></button></div></div></article>
         )}
         {saved.length > 0 && <div className="collection"><span>YOUR COLLECTION</span><strong>{saved.length} discoveries saved <ArrowUpRight size={13} /></strong></div>}
       </section>
-      <footer><span>Pulse V0.2</span><span>Discover the world, one pulse at a time.</span></footer>
+      <footer><span>Pulse V0.3</span><span>Discover the world, one pulse at a time.</span></footer>
     </main>
   );
 }
