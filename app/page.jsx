@@ -1,132 +1,47 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { Bookmark, BookmarkCheck, ChevronRight, Compass, Globe2, Search, Share2, Sparkles, Zap, Radio, MapPin } from "lucide-react";
+import { useEffect, useRef, useState } from 'react';
 
-const TOPICS = [
-  "Socotra", "Svalbard", "Kansai International Airport", "Aurora", "Atacama Desert", "Aogashima", "Darvaza gas crater", "Lake Baikal", "Salar de Uyuni", "Antarctica", "James Webb Space Telescope", "International Space Station", "Voyager program", "CERN", "Large Hadron Collider", "vertical forest", "Singapore Changi Airport", "Trans-Siberian Railway", "Fingal's Cave", "Giant's Causeway", "Waitomo Glowworm Caves", "Deep sea", "Mariana Trench", "bioluminescence", "ball lightning", "supercell", "Oymyakon", "Atacama Large Millimeter Array", "Palm Islands", "Øresund Bridge", "Channel Tunnel", "Shinkansen", "Starlink", "Reusable launch system", "International Space Station", "Antikythera mechanism", "Nazca Lines", "Machu Picchu", "Göbekli Tepe", "Moai", "Cappadocia"
-];
-
-const FALLBACK = [
-  {id:"svalbard", tag:"REMOTE WORLD", place:"SVALBARD", meta:"78° N · NORWAY", hook:"Where the sun disappears for months.", fact:"Longyearbyen sits deep inside the Arctic Circle, where winter brings a long polar night.", why:"The planet can feel completely different a few degrees farther north.", image:"https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=2200&q=90"},
-  {id:"kansai", tag:"AVIATION", place:"KANSAI", meta:"34° N · JAPAN", hook:"An airport built out on the sea.", fact:"Kansai International Airport was constructed on an artificial island offshore from Osaka.", why:"Human engineering can redraw the boundary between land and sea.", image:"https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=2200&q=90"},
-  {id:"socotra", tag:"EARTH", place:"SOCOTRA", meta:"12° N · YEMEN", hook:"An island that looks almost unreal.", fact:"Socotra has an unusually high number of species found nowhere else on Earth because of its isolation.", why:"Earth can produce landscapes that feel more alien than fiction.", image:"https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=2200&q=90"}
-];
-
-const CATEGORIES = ["ALL","WORLD","EARTH","SKY","AVIATION","SPACE","DESIGN","NATURE","JOURNEY","FUTURE"];
-
-const categoryFor = (text="") => {
-  const t=text.toLowerCase();
-  if (/airport|aircraft|aviation|railway|shinkansen|bridge|tunnel/.test(t)) return "AVIATION";
-  if (/space|voyager|starlink|telescope|station|launch|cern|hadron/.test(t)) return "SPACE";
-  if (/aurora|sky|supercell|lightning/.test(t)) return "SKY";
-  if (/desert|island|lake|ocean|mariana|antarctica|socotra|svalbard|cave|baikal|earth|bioluminescence/.test(t)) return "EARTH";
-  if (/forest|nature|glowworm|moai/.test(t)) return "NATURE";
-  if (/architecture|building|vertical|palm islands/.test(t)) return "DESIGN";
-  if (/railway|train|journey/.test(t)) return "JOURNEY";
-  if (/future|reusable|starlink/.test(t)) return "FUTURE";
-  return "WORLD";
-};
-
-function fallbackDiscovery(previous) {
-  let pool = FALLBACK.filter(x => x.id !== previous?.id);
-  return pool[Math.floor(Math.random()*pool.length)] || FALLBACK[0];
+function Globe({ pulsing, onPulse }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    let raf, start = performance.now();
+    const draw = (now) => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      const w=rect.width,h=rect.height,cx=w/2,cy=h/2,r=Math.min(w,h)*.39;
+      const t=(now-start)/1000;
+      ctx.clearRect(0,0,w,h);
+      ctx.save(); ctx.translate(cx,cy);
+      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fillStyle='#e7dfd2'; ctx.fill();
+      ctx.save(); ctx.clip();
+      ctx.strokeStyle='rgba(73,69,62,.18)'; ctx.lineWidth=.7;
+      for(let i=-3;i<=3;i++){const y=i*r/4, ry=Math.sqrt(Math.max(0,r*r-y*y));ctx.beginPath();ctx.ellipse(0,y,ry,ry*.16,0,0,Math.PI*2);ctx.stroke();}
+      for(let i=-4;i<=4;i++){const x=i*r/4;ctx.beginPath();ctx.ellipse(x+Math.sin(t*.25)*16,0,r*.18,r,0,0,Math.PI*2);ctx.stroke();}
+      ctx.fillStyle='#777168';
+      const drift=Math.sin(t*.22)*24;
+      [[-105+drift,-38,72,40],[10+drift,-62,55,31],[78+drift,-4,67,43],[-20+drift,43,48,28],[118+drift,52,30,18]].forEach(([x,y,rx,ry])=>{ctx.beginPath();ctx.ellipse(x,y,rx,ry,.15,0,Math.PI*2);ctx.fill();});
+      ctx.restore();
+      if(pulsing){const p=(t*1.7)%1;ctx.beginPath();ctx.arc(0,0,r*(1+p*.3),0,Math.PI*2);ctx.strokeStyle=`rgba(142,100,51,${.42*(1-p)})`;ctx.lineWidth=2;ctx.stroke();}
+      ctx.restore(); raf=requestAnimationFrame(draw);
+    }; raf=requestAnimationFrame(draw); return()=>cancelAnimationFrame(raf);
+  },[pulsing]);
+  return <button className="globe" onClick={onPulse} aria-label="Pulse into the world"><canvas ref={canvasRef}/><span className="globeCenter"><b>{pulsing?'SIGNAL':'PULSE'}</b><small>{pulsing?'FOUND':'ENTER THE UNKNOWN'}</small></span></button>;
 }
 
-async function getDynamicDiscovery(previous) {
-  const shuffled = [...TOPICS].sort(() => Math.random() - 0.5);
-  for (const topic of shuffled.slice(0, 5)) {
-    try {
-      const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`, { cache: "no-store" });
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (!data.extract || !data.thumbnail?.source || data.type === "disambiguation") continue;
-      const title = data.title || topic;
-      if (previous && title.toLowerCase() === previous.place.toLowerCase()) continue;
-      const tag = categoryFor(`${title} ${data.description || ""}`);
-      const location = data.coordinates?.[0];
-      const meta = location ? `${location.lat.toFixed(2)}° · ${location.lon.toFixed(2)}°` : "WORLD · LIVE SOURCE";
-      return {
-        id: `wiki-${data.pageid || title}`,
-        tag,
-        place: title.toUpperCase(),
-        meta,
-        hook: data.description ? data.description.replace(/^./, c => c.toUpperCase()) + "." : "A piece of the world worth looking closer at.",
-        fact: data.extract,
-        why: "This discovery was pulled from a live knowledge source rather than a fixed list.",
-        image: data.thumbnail.source,
-        source: data.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(" ", "_"))}`,
-        dynamic: true
-      };
-    } catch {}
-  }
-  return fallbackDiscovery(previous);
-}
-
-export default function Page() {
-  const [discovery,setDiscovery] = useState(null);
-  const [saved,setSaved] = useState([]);
-  const [mode,setMode] = useState("home");
-  const [detail,setDetail] = useState(false);
-  const [count,setCount] = useState(0);
-  const [category,setCategory] = useState("ALL");
-  const [search,setSearch] = useState("");
-  const [showSearch,setShowSearch] = useState(false);
-  const [loading,setLoading] = useState(false);
-  const [status,setStatus] = useState("READY");
-  const [history,setHistory] = useState([]);
-
-  useEffect(() => { try { setSaved(JSON.parse(localStorage.getItem("pulse-saved") || "[]")); } catch {} }, []);
-  useEffect(() => { try { localStorage.setItem("pulse-saved", JSON.stringify(saved)); } catch {} }, [saved]);
-
-  const isSaved = discovery ? saved.some(x => x.id === discovery.id) : false;
-  const collection = useMemo(() => saved, [saved]);
-
-  async function pulse() {
-    if (loading) return;
-    setLoading(true); setDetail(false); setMode("charge"); setStatus("SCANNING THE WORLD");
-    await new Promise(r => setTimeout(r, 420));
-    const next = await getDynamicDiscovery(discovery);
-    setHistory(h => discovery ? [discovery, ...h].slice(0, 12) : h);
-    setDiscovery(next); setCount(c => c + 1); setMode("discover"); setStatus(next.dynamic ? "LIVE KNOWLEDGE SOURCE" : "CURATED FALLBACK"); setLoading(false);
-  }
-
-  function openDiscovery(item) { setDiscovery(item); setMode("discover"); setDetail(false); }
-  function toggleSave() { if (!discovery) return; setSaved(s => s.some(x => x.id === discovery.id) ? s.filter(x => x.id !== discovery.id) : [...s, discovery]); }
-  async function share() { if (!discovery) return; try { await navigator.clipboard.writeText(`Pulse — ${discovery.place}: ${discovery.hook}`); setStatus("COPIED TO CLIPBOARD"); setTimeout(() => setStatus(discovery.dynamic ? "LIVE KNOWLEDGE SOURCE" : "CURATED FALLBACK"), 1200); } catch {} }
-
-  const filteredHistory = history.filter(d => (category === "ALL" || d.tag === category) && (!search || `${d.place} ${d.hook} ${d.tag}`.toLowerCase().includes(search.toLowerCase())));
-
-  return <main className={`pulse-app mode-${mode}`}>
-    <div className="noise"/><div className="orb orb-a"/><div className="orb orb-b"/>
-    <header className="nav">
-      <button className="logo" onClick={() => {setMode("home");setDiscovery(null)}}><span>P</span>PULSE</button>
-      <nav>
-        <button className={mode === "home" ? "active" : ""} onClick={() => {setMode("home");setDiscovery(null)}}><Zap size={13}/> Pulse</button>
-        <button className={mode === "explore" ? "active" : ""} onClick={() => setMode("explore")}><Compass size={13}/> Explore</button>
-        <button className={mode === "collection" ? "active" : ""} onClick={() => setMode("collection")}><Bookmark size={13}/> Collection</button>
-      </nav>
-      <div className="nav-right"><button className="search-trigger" onClick={() => setShowSearch(true)}><Search size={15}/></button><span className="live-dot"/> LIVE</div>
-    </header>
-
-    {(mode === "home" || mode === "charge") && <section className="home-stage">
-      <div className="home-copy"><div className="micro"><Radio size={13}/> DYNAMIC WORLD DISCOVERY</div><h1>The world is<br/><i>still unknown.</i></h1><p>Pulse searches a live knowledge source and pulls one unexpected place, phenomenon, object or idea into view. <b>No feed. No fixed sequence.</b></p><div className="stats"><span><b>{count}</b> pulses</span><span><b>{saved.length}</b> saved</span></div></div>
-      <div className="portal-wrap"><button className="portal" onClick={pulse} disabled={loading}><span className="portal-grid"/><span className="portal-ring r1"/><span className="portal-ring r2"/><span className="portal-ring r3"/><span className="portal-ring r4"/><span className="portal-core"><Globe2 size={24}/><b>{loading ? "SYNC" : "PULSE"}</b><small>{loading ? "SCANNING" : "ENTER THE UNKNOWN"}</small></span></button></div>
-      <div className="home-side"><div><span className="side-label">LIVE ENGINE</span><strong>Don't choose what you discover.</strong><p>Every Pulse makes a fresh web request and selects a new subject with an image and source.</p></div><button onClick={() => setMode("explore")}>Open recent discoveries <ChevronRight size={14}/></button></div>
-      <div className="home-bottom"><span><Sparkles size={13}/> {status}</span><span>THE NEXT WORLD IS HIDDEN</span></div>
-    </section>}
-
-    {mode === "explore" && <section className="explore-stage"><div className="section-head"><div><span className="micro">YOUR RECENTLY DISCOVERED WORLD</span><h2>Explore.</h2></div><button className="big-pulse" onClick={pulse}><Zap size={15}/> New live Pulse</button></div><div className="chips">{CATEGORIES.map(c => <button key={c} className={category === c ? "selected" : ""} onClick={() => setCategory(c)}>{c}</button>)}</div><div className="explore-grid">{filteredHistory.length ? filteredHistory.map(d => <button className="explore-card" key={d.id} onClick={() => openDiscovery(d)}><div style={{backgroundImage:`url(${d.image})`}}/><span>{d.tag}</span><small>{d.meta}</small><h3>{d.hook}</h3><em>Open discovery <ChevronRight size={13}/></em></button>) : <div className="empty"><Compass size={30}/><h3>Your exploration starts here.</h3><p>Pulse into the live world. Every result is fetched at discovery time.</p><button onClick={pulse}>Find something unexpected <ChevronRight size={15}/></button></div>}</div></section>}
-
-    {mode === "collection" && <section className="collection-stage"><div className="section-head"><div><span className="micro">THINGS YOU CHOSE TO KEEP</span><h2>Collection.</h2></div><div className="collection-count">{collection.length}<small>DISCOVERIES</small></div></div>{collection.length === 0 ? <div className="empty"><Bookmark size={30}/><h3>Nothing here yet.</h3><p>Don't save everything. Save the discoveries that genuinely changed your view of the world.</p><button onClick={() => {setMode("home");setDiscovery(null)}}>Start discovering <ChevronRight size={15}/></button></div> : <div className="collection-grid">{collection.map(d => <button className="collection-card" key={d.id} onClick={() => openDiscovery(d)}><div style={{backgroundImage:`url(${d.image})`}}/><span>{d.tag}</span><h3>{d.place}</h3><p>{d.hook}</p></button>)}</div>}</section>}
-
-    {mode === "discover" && discovery && <section className="discovery-stage">
-      <div className="discovery-visual" style={{backgroundImage:`url(${discovery.image})`}}><div className="visual-wash"/><div className="coordinates"><span><MapPin size={10}/> {discovery.meta}</span><span>{discovery.dynamic ? "LIVE" : "CURATED"} · {String(count).padStart(2,"0")}</span></div><div className="discovery-heading"><div className="tag">{discovery.tag} · {discovery.dynamic ? "DYNAMIC" : "CURATED"}</div><h1>{discovery.place}</h1><p>{discovery.hook}</p></div><div className="visual-index"><span>DISCOVER</span><i/><span>{String(count).padStart(2,"0")}</span></div></div>
-      <div className="discovery-dock"><div className="dock-main"><span className="dock-label">YOU FOUND THIS</span><p>{detail ? discovery.fact : discovery.hook}</p><button className="detail-button" onClick={() => setDetail(v => !v)}>{detail ? "SHOW LESS" : "LOOK CLOSER"}</button>{discovery.source && <a className="source-link" href={discovery.source} target="_blank" rel="noreferrer">SOURCE · WIKIPEDIA</a>}</div><div className="dock-side"><div className="why-block"><span>WHY IT'S WORTH KNOWING</span><p>{discovery.why}</p></div><div className="dock-actions"><button onClick={toggleSave}>{isSaved ? <BookmarkCheck size={16}/> : <Bookmark size={16}/>} {isSaved ? "Saved" : "Save"}</button><button onClick={share}><Share2 size={16}/> Share</button><button className="next" onClick={pulse}>NEXT PULSE <ChevronRight size={17}/></button></div></div></div>
-      <div className="related"><span>STATUS</span><button onClick={() => setMode("explore")}><span>{status}</span>Explore your trail<ChevronRight size={13}/></button></div>
-    </section>}
-
-    <footer><span>Pulse / Dynamic</span><span>{status}</span></footer>
-    {showSearch && <div className="search-modal"><div className="search-box"><button onClick={() => setShowSearch(false)}>×</button><Search size={18}/><input autoFocus placeholder="Search your discovery trail..." value={search} onChange={e => {setSearch(e.target.value);setMode("explore")}}/><span>ESC</span></div></div>}
+export default function Page(){
+  const [pulsing,setPulsing]=useState(false); const [discover,setDiscover]=useState(false);
+  const pulse=()=>{if(pulsing)return;setPulsing(true);setTimeout(()=>{setPulsing(false);setDiscover(true)},1500)};
+  return <main className="world-app">
+    <header><button className="brand">PULSE</button><nav><span className="active">WORLD</span><span>EXPLORE</span><span>YOUR WORLD</span></nav><span className="edition">WORLD / 01</span></header>
+    {!discover ? <section className={`world-hero ${pulsing?'is-pulsing':''}`}>
+      <div className="copy"><span>THE WORLD / 2026</span><h1>The world is<br/><em>larger than you think.</em></h1><p>One world. An infinite number of things you have never seen.</p></div>
+      <div className="globeArea"><Globe pulsing={pulsing} onPulse={pulse}/><p>{pulsing?'SEARCHING THE WORLD':'PULSE TO DISCOVER'}</p></div>
+      <div className="heroMeta"><span>01</span><span>DISCOVERY ENGINE</span><span>EARTH · SKY · SPACE · HUMAN · FUTURE</span></div>
+    </section> : <section className="found"><button onClick={()=>setDiscover(false)} className="back">← WORLD</button><div className="foundImage"/><div className="foundText"><span>SIGNAL FOUND · 01</span><h2>Somewhere<br/><em>unknown.</em></h2><p>Your first Pulse has found a place in the world. This is only the beginning.</p><button onClick={pulse}>PULSE AGAIN →</button></div></section>}
   </main>;
 }
