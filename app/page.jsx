@@ -1,64 +1,55 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bookmark, BookmarkCheck, ChevronRight, Sparkles, ArrowUpRight } from "lucide-react";
+import { Bookmark, BookmarkCheck, ChevronRight, Sparkles } from "lucide-react";
 
 const DISCOVERIES = [
-  { id: "aurora", category: "EARTH", location: "NORTHERN SKIES", title: "The sky can move like a curtain.", body: "Auroras appear when charged particles from the Sun interact with Earth's upper atmosphere, creating enormous moving patterns of light.", why: "The night sky becomes a natural light show.", image: "https://images.unsplash.com/photo-1483347756197-71ef80e95f73?auto=format&fit=crop&w=1800&q=85" },
-  { id: "airport", category: "AVIATION", location: "OFFSHORE ENGINEERING", title: "A runway can be built beyond the shore.", body: "Some airports use reclaimed land and offshore engineering to push infrastructure far beyond a natural coastline.", why: "It looks futuristic, but it is real engineering.", image: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1800&q=85" },
-  { id: "forest", category: "ARCHITECTURE", location: "VERTICAL ECOSYSTEMS", title: "A tower can become a forest.", body: "Some modern buildings integrate trees and plants into balconies and terraces, turning architecture into a vertical ecosystem.", why: "A building can become part of the landscape.", image: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=1800&q=85" },
-  { id: "space", category: "SPACE", location: "BEYOND VISIBLE LIGHT", title: "Most of the universe is invisible to your eyes.", body: "Astronomers use infrared, radio, ultraviolet and X-ray wavelengths to observe information hidden outside visible light.", why: "What we see is only a tiny slice of the universe.", image: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1800&q=85" },
-  { id: "desert", category: "NATURE", location: "AFTER THE RAIN", title: "A desert can suddenly become a sea of flowers.", body: "After unusual rainfall, dormant seeds can germinate across arid landscapes and produce short-lived blooms.", why: "Some ecosystems are built around waiting.", image: "https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1800&q=85" },
-  { id: "night-train", category: "WORLD", location: "OVERNIGHT JOURNEYS", title: "You can fall asleep in one city and wake up in another.", body: "Overnight rail routes turn travel time into part of the experience: leave one city at night and wake up somewhere else.", why: "The journey itself becomes the discovery.", image: "https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=1800&q=85" },
-  { id: "volcano", category: "EARTH", location: "BENEATH THE OCEAN", title: "Earth is constantly changing where you cannot see it.", body: "A huge amount of volcanic activity occurs beneath the oceans, where tectonic plates interact and new crust forms.", why: "The planet is active even when everything looks still.", image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=85" },
-  { id: "future-food", category: "FUTURE", location: "CONTROLLED ENVIRONMENTS", title: "Farms are moving into places farms never used to exist.", body: "Controlled-environment agriculture can grow plants indoors using carefully managed light, temperature, water and nutrients.", why: "A future city could grow food inside its own buildings.", image: "https://images.unsplash.com/photo-1515150144380-bca9f1650ed9?auto=format&fit=crop&w=1800&q=85" }
+  { id:"svalbard", tag:"WORLD", place:"SVALBARD", meta:"78° N · NORWAY", hook:"Where the sun disappears for months.", fact:"Longyearbyen sits deep inside the Arctic Circle, where winter brings a polar night lasting for weeks.", why:"The world can feel completely different just a few degrees farther north.", image:"https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=2200&q=90" },
+  { id:"aurora", tag:"SKY", place:"NORTHERN LIGHTS", meta:"ARCTIC SKY", hook:"The sky can move like a living thing.", fact:"Auroras form when particles from the Sun interact with Earth's upper atmosphere and create huge waves of light.", why:"What looks like magic is a planetary-scale interaction above you.", image:"https://images.unsplash.com/photo-1483347756197-71ef80e95f73?auto=format&fit=crop&w=2200&q=90" },
+  { id:"socotra", tag:"EARTH", place:"SOCOTRA", meta:"12° N · YEMEN", hook:"An island that looks almost unreal.", fact:"Socotra has an unusually high number of species found nowhere else on Earth because of its long isolation.", why:"Earth can produce landscapes that feel more alien than fiction.", image:"https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=2200&q=90" },
+  { id:"airport", tag:"AVIATION", place:"KANSAI", meta:"34° N · JAPAN", hook:"An airport built out on the sea.", fact:"Kansai International Airport was constructed on an artificial island offshore from Osaka.", why:"Human engineering can completely redraw the boundary between land and sea.", image:"https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=2200&q=90" },
+  { id:"space", tag:"SPACE", place:"BEYOND VISIBLE LIGHT", meta:"THE UNIVERSE", hook:"Your eyes see only a tiny part of reality.", fact:"Astronomers use radio, infrared, ultraviolet and X-ray wavelengths to observe information hidden outside visible light.", why:"The universe is far bigger than what human vision can perceive.", image:"https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=2200&q=90" },
+  { id:"architecture", tag:"DESIGN", place:"VERTICAL FORESTS", meta:"MODERN CITIES", hook:"A building can become part of the landscape.", fact:"Some towers integrate hundreds of trees and plants into balconies and terraces, creating vertical ecosystems.", why:"Architecture does not always have to separate a city from nature.", image:"https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=2200&q=90" },
+  { id:"desert", tag:"NATURE", place:"DESERT BLOOM", meta:"AFTER THE RAIN", hook:"A desert can briefly become a sea of flowers.", fact:"After unusual rainfall, dormant seeds can germinate across arid landscapes and create short-lived blooms.", why:"Some ecosystems are designed around waiting.", image:"https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=2200&q=90" },
+  { id:"nighttrain", tag:"JOURNEY", place:"OVERNIGHT RAIL", meta:"EUROPE · ASIA", hook:"Fall asleep in one city. Wake up in another.", fact:"Overnight trains turn the journey itself into part of the destination, crossing landscapes while passengers sleep.", why:"Travel can be an experience before you even arrive.", image:"https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=2200&q=90" }
 ];
 
-function randomIndex(previous) {
-  let next = Math.floor(Math.random() * DISCOVERIES.length);
-  while (DISCOVERIES.length > 1 && next === previous) next = Math.floor(Math.random() * DISCOVERIES.length);
-  return next;
-}
+function nextIndex(previous){ let n=Math.floor(Math.random()*DISCOVERIES.length); while(n===previous) n=Math.floor(Math.random()*DISCOVERIES.length); return n; }
 
-export default function Page() {
-  const [index, setIndex] = useState(null);
-  const [saved, setSaved] = useState([]);
-  const [count, setCount] = useState(0);
-  const [transitioning, setTransitioning] = useState(false);
+export default function Page(){
+  const [index,setIndex]=useState(null);
+  const [saved,setSaved]=useState([]);
+  const [phase,setPhase]=useState("idle");
+  const [count,setCount]=useState(0);
+  const discovery=index===null?null:DISCOVERIES[index];
+  const isSaved=discovery?saved.includes(discovery.id):false;
 
-  useEffect(() => { try { setSaved(JSON.parse(localStorage.getItem("pulse-saved") || "[]")); } catch {} }, []);
-  useEffect(() => { localStorage.setItem("pulse-saved", JSON.stringify(saved)); }, [saved]);
+  useEffect(()=>{try{setSaved(JSON.parse(localStorage.getItem("pulse-saved")||"[]"));}catch{}},[]);
+  useEffect(()=>{localStorage.setItem("pulse-saved",JSON.stringify(saved));},[saved]);
 
-  const discovery = index === null ? null : DISCOVERIES[index];
-  const isSaved = discovery ? saved.includes(discovery.id) : false;
+  function pulse(){
+    if(phase!=="idle")return;
+    setPhase("charging");
+    window.setTimeout(()=>{setIndex(nextIndex(index));setCount(c=>c+1);setPhase("reveal");window.setTimeout(()=>setPhase("idle"),900)},index===null?450:650);
+  }
+  function toggleSave(){if(!discovery)return;setSaved(s=>s.includes(discovery.id)?s.filter(x=>x!==discovery.id):[...s,discovery.id]);}
 
-  const pulse = () => {
-    setTransitioning(true);
-    window.setTimeout(() => {
-      setIndex(randomIndex(index));
-      setCount(c => c + 1);
-      window.setTimeout(() => setTransitioning(false), 60);
-    }, index === null ? 0 : 260);
-  };
+  return <main className={`pulse-app ${discovery?"has-world":"at-start"} phase-${phase}`}>
+    <div className="noise"/><div className="light light-a"/><div className="light light-b"/>
+    <header className="nav"><div className="logo"><span>P</span> PULSE</div><div className="nav-right">{discovery&&<span>DISCOVERY {String(count).padStart(2,"0")}</span>}<span className="live-dot"/>WORLD ENGINE</div></header>
 
-  const toggleSave = () => {
-    if (!discovery) return;
-    setSaved(current => current.includes(discovery.id) ? current.filter(id => id !== discovery.id) : [...current, discovery.id]);
-  };
+    {!discovery ? <section className="start-screen">
+      <div className="start-copy"><div className="micro"><Sparkles size={13}/> A DIFFERENT WAY TO EXPLORE</div><h1>Don't search.<br/><i>Discover.</i></h1><p>One tap brings something you didn't know existed into your world.</p></div>
+      <button className="core-pulse" onClick={pulse}><span className="halo h1"/><span className="halo h2"/><span className="halo h3"/><span className="core-label">PULSE</span></button>
+      <div className="start-rule"><span/> <b>THE NEXT THING IS UNKNOWN</b> <span/></div>
+    </section> : <section className="world-screen" key={discovery.id}>
+      <div className="world-photo" style={{backgroundImage:`url(${discovery.image})`}}><div className="photo-shade"/><div className="photo-grain"/>
+        <div className="world-label"><span>{discovery.tag}</span><span>{discovery.meta}</span></div>
+        <div className="world-title"><div className="overline">YOU DIDN'T CHOOSE THIS</div><h1>{discovery.place}</h1><p>{discovery.hook}</p></div>
+      </div>
+      <div className="reveal-bar"><div className="fact"><span>01 · LOOK CLOSER</span><p>{discovery.fact}</p></div><div className="why"><span>WHY IT MATTERS</span><p>{discovery.why}</p></div><div className="actions"><button className="save" onClick={toggleSave}>{isSaved?<BookmarkCheck size={17}/>:<Bookmark size={17}/>} {isSaved?"Saved":"Save"}</button><button className="another" onClick={pulse}>ANOTHER <ChevronRight size={17}/></button></div></div>
+    </section>}
 
-  return (
-    <main className={`app ${transitioning ? "is-pulsing" : ""}`}>
-      <div className="ambient ambient-one" /><div className="ambient ambient-two" />
-      <header className="topbar"><div className="brand"><span className="brand-mark">P</span><span>Pulse</span></div><div className="status"><span className="status-dot" /> WORLD DISCOVERY</div></header>
-      <section className="hero">
-        {!discovery ? (
-          <div className="landing"><div className="eyebrow"><Sparkles size={14} /> NO FEED. NO SEARCH. JUST THE UNKNOWN.</div><h1>Call<br /><em>the unknown.</em></h1><p className="subtitle">One pulse brings one unexpected piece of the world into view.</p><button className="pulse-button" onClick={pulse} aria-label="Pulse"><span className="pulse-orbit orbit-one" /><span className="pulse-orbit orbit-two" /><span className="pulse-ring ring-one" /><span className="pulse-ring ring-two" /><span className="pulse-core">PULSE</span></button><div className="hint">Don't choose. Don't scroll. Just pulse.</div></div>
-        ) : (
-          <article className="discovery" key={discovery.id}><div className="discovery-image" style={{ backgroundImage: `url(${discovery.image})` }}><div className="image-shade" /><div className="image-top"><span>{discovery.category}</span><span>PULSE {String(count).padStart(2, "0")}</span></div><div className="image-copy"><div className="location">{discovery.location}</div><h2>{discovery.title}</h2></div></div><div className="discovery-body"><div className="body-copy"><p>{discovery.body}</p><div className="why"><strong>WHY IT'S INTERESTING</strong><span>{discovery.why}</span></div></div><div className="discovery-actions"><button className="save-button" onClick={toggleSave}>{isSaved ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}{isSaved ? "Saved" : "Save"}</button><button className="next-button" onClick={pulse}>Call Another <ChevronRight size={18} /></button></div></div></article>
-        )}
-        {saved.length > 0 && <div className="collection"><span>YOUR COLLECTION</span><strong>{saved.length} discoveries saved <ArrowUpRight size={13} /></strong></div>}
-      </section>
-      <footer><span>Pulse V0.4</span><span>Call the unknown, one pulse at a time.</span></footer>
-    </main>
-  );
+    <footer><span>Pulse / V0.5</span><span>{saved.length?`${saved.length} saved discoveries`:"THE WORLD IS BIGGER THAN YOUR FEED"}</span></footer>
+  </main>;
 }
