@@ -1,1 +1,0 @@
-Relay MVP protocol: state travels in a shareable URL hash; max 10 steps; text-first; anonymous; no backend required for validation.
