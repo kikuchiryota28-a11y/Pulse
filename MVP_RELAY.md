@@ -1,1 +1,0 @@
-Relay MVP: one seed is passed from stranger to stranger as a shareable URL. Each participant adds one constrained transformation. After 10 steps the chain becomes the result. URL-hash transport keeps the MVP backend-free and testable at zero infrastructure cost.
