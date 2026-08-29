@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-const MAX_STEPS = 10;
+// MVP deliberately uses 3 handoffs: fast enough to test the behavior before building a backend.
+const MAX_STEPS = 3;
 const STARTERS = [
-  'Show the next person something you noticed today.',
-  'Take one ordinary thing and make it strange.',
-  'Describe a place you would send a stranger to.',
+  'Describe the strangest thing you can see right now.',
+  'Take something ordinary and make it feel mysterious.',
+  'Give the next person a tiny idea they can transform.',
 ];
 
 function encodeRelay(relay) {
@@ -72,9 +73,9 @@ export default function Page() {
 
   const prompt = useMemo(() => {
     if (!relay) return '';
-    if (relay.steps.length === 0) return 'Start with one small observation, image in your head, or idea.';
+    if (relay.steps.length === 0) return 'Make one small move. Leave something the next person can transform.';
     const last = relay.steps[relay.steps.length - 1];
-    return `Take this and change it. Do one small thing that the next person can continue:\n\n“${last.output}”`;
+    return `Take this and change it. Do one small thing the next person can continue:\n\n“${last.output}”`;
   }, [relay]);
 
   const startRelay = (value = seed) => {
@@ -121,11 +122,11 @@ export default function Page() {
         <section className="home-stage">
           <div className="hero-word">PASS<br /><em>IT ON.</em></div>
           <div className="hero-copy">
-            <span className="eyebrow">NOT A FEED · NOT A GAME · NOT A CHAT</span>
-            <h1>One idea.<br />Ten strangers.</h1>
-            <p>Start something. A stranger changes it. Another stranger changes that. See what survives.</p>
+            <span className="eyebrow">NOT A FEED · NOT A CHAT</span>
+            <h1>One idea.<br />Three people.</h1>
+            <p>Start something. Pass it to another person. They change it. Someone else changes that. Then see what happened.</p>
             <div className="starter-block">
-              <textarea value={seed} onChange={e => { setSeed(e.target.value); setError(''); }} placeholder="Give a stranger something to continue…" maxLength={180} />
+              <textarea value={seed} onChange={e => { setSeed(e.target.value); setError(''); }} placeholder="Give someone something to continue…" maxLength={180} />
               <button onClick={() => startRelay()} className="primary-cta">START A RELAY <span>→</span></button>
               {error && <p className="error">{error}</p>}
             </div>
@@ -133,19 +134,19 @@ export default function Page() {
               {STARTERS.map(item => <button key={item} onClick={() => { setSeed(item); setError(''); }}>{item}</button>)}
             </div>
           </div>
-          <div className="hero-mark"><span>01</span><span>→</span><span>∞</span></div>
+          <div className="hero-mark"><span>01</span><span>→</span><span>03</span></div>
         </section>
       )}
 
       {view === 'share' && relay && (
         <section className="share-stage">
-          <div className="step-large">01<span>/10</span></div>
+          <div className="step-large">01<span>/{MAX_STEPS}</span></div>
           <div className="share-panel">
             <span className="eyebrow">YOUR SEED</span>
             <blockquote>“{relay.seed}”</blockquote>
-            <p>Now the interesting part: someone else has to take it from here.</p>
+            <p>Now hand it to someone else. Anyone with this link can become the next person.</p>
             <div className="share-actions">
-              <button className="primary-cta" onClick={() => copyRelay()}>{copied ? 'LINK COPIED' : 'PASS TO A STRANGER'} <span>↗</span></button>
+              <button className="primary-cta" onClick={() => copyRelay()}>{copied ? 'LINK COPIED' : 'PASS TO THE NEXT PERSON'} <span>↗</span></button>
               <button className="ghost-cta" onClick={() => setView('join')}>PREVIEW THE NEXT STEP</button>
             </div>
             <div className="share-note">The Relay travels inside the link itself. No account. No feed. No profile.</div>
@@ -161,7 +162,7 @@ export default function Page() {
             <div className="rail-lines">{Array.from({ length: MAX_STEPS }).map((_, i) => <span key={i} className={i < currentStep ? 'filled' : i === currentStep ? 'current' : ''} />)}</div>
           </div>
           <div className="join-main">
-            <span className="eyebrow">{currentStep === 0 ? 'YOU ARE FIRST' : 'YOU ARE SOMEWHERE IN THE MIDDLE'}</span>
+            <span className="eyebrow">{currentStep === 0 ? 'YOU ARE FIRST' : 'YOU ARE IN THE MIDDLE'}</span>
             <h1>{currentStep === 0 ? 'Make the first move.' : 'Change what you were given.'}</h1>
             <div className="seed-context">
               <span>{currentStep === 0 ? 'THE ORIGINAL SEED' : 'THE LAST PERSON LEFT THIS'}</span>
@@ -188,7 +189,7 @@ export default function Page() {
           <div className="pass-copy">
             <span className="eyebrow">YOUR PART IS DONE</span>
             <h1>Now give it<br /><em>to someone else.</em></h1>
-            <p>You changed the Relay. The next stranger gets a different starting point than you did.</p>
+            <p>You changed the Relay. The next person gets a different starting point than you did.</p>
             <div className="share-actions"><button className="primary-cta" onClick={() => copyRelay()}>{copied ? 'LINK COPIED' : 'PASS THE LINK'} <span>↗</span></button><button className="ghost-cta" onClick={() => setView('join')}>EDIT MY STEP</button></div>
             <div className="pass-meta"><span>{remaining} HANDOFFS LEFT</span><span>RELAY {relay.id}</span></div>
           </div>
@@ -197,8 +198,8 @@ export default function Page() {
 
       {view === 'complete' && relay && (
         <section className="complete-stage">
-          <div className="complete-head"><span className="eyebrow">RELAY COMPLETE · {MAX_STEPS} HANDOFFS</span><h1>Look what<br /><em>happened.</em></h1><p>Your original seed passed through ten strangers and came back as something none of you could have planned.</p></div>
-          <div className="timeline"><div className="timeline-seed"><span>00 · YOU</span><p>{relay.seed}</p></div>{relay.steps.map((step, index) => <div className="timeline-step" key={`${step.at}-${index}`}><span>{String(index + 1).padStart(2, '0')} · STRANGER</span><p>{step.output}</p></div>)}</div>
+          <div className="complete-head"><span className="eyebrow">RELAY COMPLETE · {MAX_STEPS} HANDOFFS</span><h1>Look what<br /><em>happened.</em></h1><p>Your seed passed through {MAX_STEPS} people and became something none of you could have planned.</p></div>
+          <div className="timeline"><div className="timeline-seed"><span>00 · YOU</span><p>{relay.seed}</p></div>{relay.steps.map((step, index) => <div className="timeline-step" key={`${step.at}-${index}`}><span>{String(index + 1).padStart(2, '0')} · PERSON</span><p>{step.output}</p></div>)}</div>
           <div className="complete-footer"><button className="primary-cta" onClick={() => copyRelay()}>{copied ? 'LINK COPIED' : 'SHARE THE RESULT'} <span>↗</span></button><button className="ghost-cta" onClick={newRelay}>START ANOTHER</button></div>
         </section>
       )}
