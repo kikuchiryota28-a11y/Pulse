@@ -1,8 +1,9 @@
 import "../src/styles.css";
+import "../src/styles-v3.css";
 
 export const metadata = {
-  title: "Pulse — Discover the unknown",
-  description: "One tap. One piece of the world you probably didn't know existed."
+  title: "Pulse — Human Relay",
+  description: "One small action moves through strangers. Nobody sees the end coming."
 };
 
 export default function RootLayout({ children }) {
