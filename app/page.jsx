@@ -1,120 +1,300 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowRight, Check, CircleDot, Clock3, Copy, LoaderCircle, Palette, Radio, RotateCcw, Shapes, Sparkles, Type, Users, Waves, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, CircleDot, Clock3, Copy, LoaderCircle, Palette, Radio, RotateCcw, Shapes, Sparkles, Type, Users, Waves } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const MAX_STEPS = 3;
-const PULSES_KEY = 'pulse:v5:pulses';
-const ACTIVE_KEY = 'pulse:v5:active';
-const SESSIONS_KEY = 'pulse:v5:sessions';
-const STARTERS = ['A vending machine that only appears at midnight.','The sound of rain on a city nobody has visited.','A tiny door hidden somewhere in this room.'];
-const FORM_SHAPES = ['circle','square','triangle','organic'];
-const FORM_COLORS = [
-  { name:'Electric blue', value:'#2764ff', h:220 },
-  { name:'Violet', value:'#8b5cf6', h:262 },
-  { name:'Cyan', value:'#18c8d8', h:185 },
-  { name:'Coral', value:'#ff7a45', h:16 },
+const PULSES_KEY = 'pulse:v6:pulses';
+const SESSIONS_KEY = 'pulse:v6:sessions';
+const STARTERS = ['A door that opens somewhere impossible.', 'A signal from a city nobody can find.', 'A tiny object that should not exist.'];
+const FORM_SHAPES = ['circle', 'square', 'triangle', 'organic'];
+const COLORS = [
+  { label: 'Cyan', hue: 190 },
+  { label: 'Lime', hue: 78 },
+  { label: 'Violet', hue: 270 },
+  { label: 'Coral', hue: 14 },
 ];
 const TEXT_ACTIONS = [
-  { title:'MAKE IT STRANGER', code:'STRANGER', copy:'Push the idea somewhere unexpected.' },
-  { title:'MAKE IT SOFTER', code:'SOFTER', copy:'Give it a warmer, more human direction.' },
-  { title:'MAKE IT BIGGER', code:'BIGGER', copy:'Scale the idea until it feels impossible.' },
+  ['STRANGER', 'Make it stranger'],
+  ['SOFTER', 'Make it softer'],
+  ['BIGGER', 'Make it bigger'],
 ];
 const FORM_ACTIONS = [
-  { title:'ROTATE IT', code:'ROTATE', copy:'Turn the form into a new direction.' },
-  { title:'RESHAPE IT', code:'RESHAPE', copy:'Change the geometry without losing it.' },
-  { title:'CHARGE IT', code:'CHARGE', copy:'Give the object a new energy.' },
+  ['ROTATE', 'Rotate it'],
+  ['RESHAPE', 'Reshape it'],
+  ['CHARGE', 'Charge it'],
 ];
 const COLOR_ACTIONS = [
-  { title:'SHIFT WARMER', code:'WARM', copy:'Move the color toward heat.' },
-  { title:'SHIFT COOLER', code:'COOL', copy:'Pull the color toward ice and air.' },
-  { title:'AMPLIFY IT', code:'LOUD', copy:'Make the color louder and brighter.' },
+  ['WARM', 'Shift warmer'],
+  ['COOL', 'Shift cooler'],
+  ['LOUD', 'Amplify it'],
 ];
 
-function readSteps(relay){return Array.isArray(relay?.steps)?relay.steps:[];}
-function parsePayload(value){try{const x=JSON.parse(value);if(x&&typeof x==='object'&&x.type)return x;}catch{}return null;}
-function currentPayload(relay){const steps=readSteps(relay); return (steps.length ? parsePayload(steps[steps.length-1].output) : null) || parsePayload(relay?.seed) || {type:'text',text:relay?.seed||''};}
-function pulseType(relay){return currentPayload(relay).type||'text';}
-function asLabel(type){return type==='form'?'FORM PULSE':type==='color'?'COLOR PULSE':'TEXT PULSE';}
-function compact(obj){return JSON.stringify(obj);}
-function adjustHue(h,delta){return (h+delta+360)%360;}
-function applyAction(artifact, action, step){
-  const a={...artifact};
-  if(a.type==='form'){
-    if(action==='ROTATE') a.rotation=(Number(a.rotation||0)+24)%360;
-    if(action==='RESHAPE') a.shape=FORM_SHAPES[(FORM_SHAPES.indexOf(a.shape)+1)%FORM_SHAPES.length];
-    if(action==='CHARGE'){a.hue=adjustHue(Number(a.hue||220),step%2?18:-18);a.glow=Math.min(1,Number(a.glow||0.25)+0.24);}
-    if(step===1)a.size=Math.max(.86,Math.min(1.2,Number(a.size||1)+.06));
-    if(step===2)a.rotation=(Number(a.rotation||0)+11)%360;
+const spring = { type: 'spring', stiffness: 320, damping: 24, mass: 0.72 };
+const softSpring = { type: 'spring', stiffness: 210, damping: 26, mass: 0.9 };
+
+function safeJson(value, fallback) { try { return JSON.parse(value); } catch { return fallback; } }
+function stepsOf(relay) { return Array.isArray(relay?.steps) ? relay.steps : []; }
+function payloadOf(relay) {
+  const steps = stepsOf(relay);
+  for (let i = steps.length - 1; i >= 0; i -= 1) {
+    const parsed = safeJson(steps[i]?.output, null);
+    if (parsed?.type) return parsed;
+  }
+  const seed = safeJson(relay?.seed, null);
+  return seed?.type ? seed : { type: 'text', text: relay?.seed || '' };
+}
+function adjustHue(h, d) { return (Number(h || 0) + d + 360) % 360; }
+function mutate(artifact, action, step) {
+  const a = { ...artifact };
+  if (a.type === 'form') {
+    if (action === 'ROTATE') a.rotation = (Number(a.rotation || 0) + 28) % 360;
+    if (action === 'RESHAPE') a.shape = FORM_SHAPES[(FORM_SHAPES.indexOf(a.shape) + 1) % FORM_SHAPES.length];
+    if (action === 'CHARGE') { a.hue = adjustHue(a.hue || 190, step % 2 ? 26 : -26); a.glow = Math.min(1, Number(a.glow || .2) + .22); }
+    a.size = Math.min(1.2, Number(a.size || 1) + 0.04);
     return a;
   }
-  if(a.type==='color'){
-    if(action==='WARM')a.hue=adjustHue(Number(a.hue||220),20);
-    if(action==='COOL')a.hue=adjustHue(Number(a.hue||220),-20);
-    if(action==='LOUD'){a.sat=Math.min(100,Number(a.sat||82)+8);a.light=Math.min(74,Number(a.light||58)+5);}
-    if(step===1)a.hue=adjustHue(Number(a.hue||220),7);
-    if(step===2)a.sat=Math.min(100,Number(a.sat||82)+4);
+  if (a.type === 'color') {
+    if (action === 'WARM') a.hue = adjustHue(a.hue, 22);
+    if (action === 'COOL') a.hue = adjustHue(a.hue, -22);
+    if (action === 'LOUD') { a.sat = Math.min(100, Number(a.sat || 82) + 10); a.light = Math.min(72, Number(a.light || 58) + 5); }
+    a.angle = (Number(a.angle || 30) + 14) % 360;
     return a;
   }
   return a;
 }
-function encodeSeed(type,seed,formShape,formColor,formSize){
-  if(type==='form') return compact({v:1,type:'form',shape:formShape,hue:formColor,size:formSize,rotation:0,glow:.26});
-  if(type==='color') return compact({v:1,type:'color',hue:formColor,sat:82,light:58,angle:28});
-  return seed.trim();
+function seedPayload(kind, text, shape, hue) {
+  if (kind === 'form') return JSON.stringify({ v: 2, type: 'form', shape, hue, size: 1, rotation: 0, glow: .22 });
+  if (kind === 'color') return JSON.stringify({ v: 2, type: 'color', hue, sat: 84, light: 58, angle: 28 });
+  return text.trim();
 }
-function readSession(){try{return JSON.parse(localStorage.getItem(ACTIVE_KEY)||'{}')}catch{return{}}}
-function writeSession(patch){try{localStorage.setItem(ACTIVE_KEY,JSON.stringify({...readSession(),...patch}))}catch{}}
-function clearActive(){try{localStorage.removeItem(ACTIVE_KEY)}catch{}}
-function readSessions(){try{return JSON.parse(localStorage.getItem(SESSIONS_KEY)||'{}')}catch{return{}}}
-function writeSessions(next){try{localStorage.setItem(SESSIONS_KEY,JSON.stringify(next))}catch{}}
-function rememberPulseList(entry){try{const old=JSON.parse(localStorage.getItem(PULSES_KEY)||'[]');const next=[entry,...old.filter(p=>p.id!==entry.id)].slice(0,24);localStorage.setItem(PULSES_KEY,JSON.stringify(next));return next}catch{return[]}}
-function visualStyle(a){const hue=Number(a.hue||220), sat=Number(a.sat||88), light=Number(a.light||58); return {background:`linear-gradient(135deg,hsl(${hue} ${sat}% ${Math.min(78,light+14)}%),hsl(${adjustHue(hue,42)} ${Math.max(60,sat-8)}% ${Math.max(38,light-12)}%))`,transform:`rotate(${Number(a.rotation||0)}deg) scale(${Number(a.size||1)})`,boxShadow:`0 ${a.glow?26:20}px ${a.glow?60:42}px hsla(${hue},85%,55%,${a.glow||.18})`};}
-
-function Artifact({relay,large=false}){
-  const a=currentPayload(relay); if(a.type==='form') return <div className={`relay-artifact ${large?'large':''}`}><div className={`artifact ${a.shape||'circle'}`} style={visualStyle(a)} /></div>;
-  if(a.type==='color') return <div className={`relay-artifact ${large?'large':''}`}><div className="color-pulse" style={{background:`conic-gradient(from ${Number(a.angle||28)}deg,hsl(${a.hue} ${a.sat||82}% ${a.light||58}%),hsl(${adjustHue(a.hue,48)} 92% 66%),hsl(${adjustHue(a.hue,-34)} 90% 56%),hsl(${a.hue} ${a.sat||82}% ${a.light||58}%))`}}/></div>;
-  return <div className="text-artifact"><span>01</span><p>{a.text||relay?.seed}</p></div>;
-}
-
-export default function Page(){
-  const [screen,setScreen]=useState('home'); const [relay,setRelay]=useState(null); const [token,setToken]=useState('');
-  const [seed,setSeed]=useState(''); const [seedType,setSeedType]=useState('text'); const [formShape,setFormShape]=useState('circle'); const [formColor,setFormColor]=useState(220); const [formSize,setFormSize]=useState(1);
-  const [mode,setMode]=useState(''); const [detail,setDetail]=useState(''); const [role,setRole]=useState(''); const [liveEvent,setLiveEvent]=useState(''); const [copied,setCopied]=useState(false); const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [myPulses,setMyPulses]=useState([]);
-  const steps=readSteps(relay); const currentCount=relay?.step_count??steps.length; const isComplete=relay?.status==='complete'||currentCount>=MAX_STEPS; const type=pulseType(relay); const source=currentPayload(relay);
-  const actions=type==='form'?FORM_ACTIONS:type==='color'?COLOR_ACTIONS:TEXT_ACTIONS;
-  const instruction=useMemo(()=>{if(!relay)return'';if(type==='text'){if(currentCount===0)return'Choose one instinct. No essays. One move.';if(currentCount===1)return'Add one tiny detail that changes the direction.';return'Name what this has become. One short title.'}if(type==='form')return currentCount===0?'Give the form its first mutation.':currentCount===1?'Make the object drift further.':'Give the final form one last twist.';return currentCount===0?'Change the temperature of the color.':currentCount===1?'Push the color somewhere new.':'Make the final color unmistakable.'},[relay,currentCount,type]);
-
-  useEffect(()=>{try{const raw=JSON.parse(localStorage.getItem(PULSES_KEY)||'[]');if(Array.isArray(raw))setMyPulses(raw)}catch{} const saved=readSession(); if(!saved.relayId)return; let cancelled=false; (async()=>{const {data}=await supabase.from('relays').select('*').eq('id',saved.relayId).single();if(cancelled||!data){clearActive();return;}setRelay(data);setRole(saved.role||'creator');setToken(saved.token||'');setScreen(data.status==='complete'?'result':saved.role==='stranger'&&saved.token?'turn':'waiting')})(); return()=>{cancelled=true}},[]);
-  useEffect(()=>{setMyPulses(prev=>{try{localStorage.setItem(PULSES_KEY,JSON.stringify(prev))}catch{}return prev})},[myPulses]);
-  useEffect(()=>{if(!relay?.id)return;let alive=true;const refresh=async()=>{const {data}=await supabase.from('relays').select('*').eq('id',relay.id).single();if(!alive||!data)return;setRelay(data);setMyPulses(prev=>prev.map(p=>p.id===data.id?{...p,status:data.status,updatedAt:Date.now(),seed:data.seed}:p));if(data.status==='complete')setScreen('result')};refresh();const ch=supabase.channel(`relay:${relay.id}`).on('postgres_changes',{event:'UPDATE',schema:'public',table:'relays',filter:`id=eq.${relay.id}`},payload=>{const next=payload.new;if(!alive)return;setRelay(next);setMyPulses(prev=>prev.map(p=>p.id===next.id?{...p,status:next.status,updatedAt:Date.now(),seed:next.seed}:p));setLiveEvent(next.step_count>currentCount?'A STRANGER JUST MOVED THE PULSE':next.status==='active'?'STRANGER JOINED':'PULSE UPDATED');if(next.status==='complete')setScreen('result');window.setTimeout(()=>setLiveEvent(''),2200)}).subscribe();return()=>{alive=false;supabase.removeChannel(ch)}},[relay?.id]);
-
-  const remember=(r,rrole,rtoken='')=>{if(!r?.id)return;const entry={id:r.id,role:rrole,seed:r.seed,status:r.status,updatedAt:Date.now()};setMyPulses(prev=>{const next=[entry,...prev.filter(p=>p.id!==r.id)].slice(0,24);rememberPulseList(entry);return next});const sessions=readSessions();sessions[r.id]={role:rrole,token:rtoken};writeSessions(sessions);writeSession({relayId:r.id,role:rrole,token:rtoken});}
-  const createRelay=async()=>{setError('');if(seedType==='text'&&seed.trim().length<4)return setError('Give the Pulse something to start with.');setBusy(true);const payload=encodeSeed(seedType,seed,formShape,formColor,formSize);const {data, error:e}=await supabase.rpc('create_relay',{p_seed:payload});setBusy(false);if(e)return setError(e.message);setRelay(data);setRole('creator');setToken('');remember(data,'creator');setSeed('');setLiveEvent('PULSE CREATED');setScreen('waiting');}
-  const joinPulse=async()=>{setError('');setBusy(true);const {data,error:e}=await supabase.rpc('claim_relay');setBusy(false);if(e)return setError(e.message);if(!data)return setError('No Pulse is waiting right now. Start one and leave it in the pool.');setRelay(data.relay);setToken(data.token);setRole('stranger');remember(data.relay,'stranger',data.token);setMode('');setDetail('');setLiveEvent('STRANGER JOINED');setScreen('turn');}
-  const submitStep=async()=>{setError('');if(!relay||!token)return;let output='';
-    if(type==='text'){if(currentCount===0&&!mode)return setError('Choose one instinct.');if(currentCount===1&&detail.trim().length<2)return setError('Add one small detail.');if(currentCount===2&&detail.trim().length<2)return setError('Give it a short title.');if(currentCount===0)output=`${source.text||relay.seed} → ${{STRANGER:'stranger',SOFTER:'softer',BIGGER:'bigger'}[mode]||'different'}.`;if(currentCount===1)output=`${source.text||source} → detail: ${detail.trim()}`;if(currentCount===2)output=`${detail.trim()} — born from ${source.text||source}`;}
-    else {if(!mode)return setError('Choose one mutation.');const next=applyAction(source,mode,currentCount);output=compact(next);}
-    setBusy(true);const {data,error:e}=await supabase.rpc('submit_relay_step',{p_relay_id:relay.id,p_token:token,p_output:output.slice(0,3900)});setBusy(false);if(e)return setError(e.message);setRelay(data);setToken('');setMode('');setDetail('');const sessions=readSessions();sessions[relay.id]={role,token:''};writeSessions(sessions);writeSession({relayId:relay.id,role,token:''});setScreen(data.status==='complete'?'result':'waiting');
+function VisualArtifact({ payload, large = false }) {
+  if (payload.type === 'form') {
+    const hue = Number(payload.hue || 190);
+    const style = {
+      width: large ? 220 : 132,
+      height: large ? 220 : 132,
+      background: `hsl(${hue} 90% 62%)`,
+      transform: `rotate(${Number(payload.rotation || 0)}deg) scale(${Number(payload.size || 1)})`,
+      boxShadow: `0 0 ${large ? 72 : 44}px hsla(${hue}, 90%, 62%, ${Number(payload.glow || .22)})`,
+    };
+    return <motion.div layout transition={softSpring} className={`relative ${large ? 'h-[280px]' : 'h-[180px]'} w-full flex items-center justify-center`}><motion.div layout className={`relative ${payload.shape === 'circle' ? 'rounded-full' : payload.shape === 'square' ? 'rounded-3xl' : payload.shape === 'triangle' ? '' : 'rounded-[48%_52%_38%_62%]'} shadow-none`} style={{ ...style, clipPath: payload.shape === 'triangle' ? 'polygon(50% 0%, 100% 100%, 0% 100%)' : undefined }} animate={{ y: [0, -8, 0], rotate: [Number(payload.rotation || 0) - 2, Number(payload.rotation || 0) + 3, Number(payload.rotation || 0) - 2] }} transition={{ y: { duration: 4.8, repeat: Infinity, ease: 'easeInOut' }, rotate: { duration: 6.4, repeat: Infinity, ease: 'easeInOut' } }} /></motion.div>;
   }
-  const resumePulse=async(entry)=>{setBusy(true);const {data,error:e}=await supabase.from('relays').select('*').eq('id',entry.id).single();setBusy(false);if(e||!data)return setError('That Pulse is no longer available.');const sessions=readSessions();const saved=sessions[entry.id]||{};setRelay(data);setRole(entry.role);setToken(saved.token||'');setScreen(data.status==='complete'?'result':entry.role==='stranger'&&saved.token?'turn':'waiting');writeSession({relayId:entry.id,role:entry.role,token:saved.token||''});}
-  const goHome=()=>setScreen('home'); const newPulse=()=>{clearActive();setRelay(null);setToken('');setRole('');setScreen('home');setLiveEvent('')};
-  const copyId=async()=>{if(!relay?.id)return;await navigator.clipboard.writeText(relay.id);setCopied(true);setTimeout(()=>setCopied(false),1100)};
+  if (payload.type === 'color') {
+    const hue = Number(payload.hue || 190);
+    return <motion.div layout className={`${large ? 'h-[260px] w-[260px]' : 'h-[140px] w-[140px]'} rounded-full`} style={{ background: `hsl(${hue} ${payload.sat || 84}% ${payload.light || 58}%)`, boxShadow: `0 0 80px hsla(${hue},90%,60%,.22)` }} animate={{ scale: [0.96, 1.04, 0.96], rotate: [0, 12, 0] }} transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' }} />;
+  }
+  return <motion.div layout className={`max-w-full rounded-2xl border border-white/10 bg-white/[0.035] px-5 py-4 ${large ? 'text-2xl' : 'text-base'}`}><p className="leading-relaxed text-white break-words">{payload.text}</p></motion.div>;
+}
 
-  return <main className="pulse-app"><div className="ambient ambient-a"/><div className="ambient ambient-b"/><div className="ambient ambient-c"/>
-    <header className="pulse-nav"><button className="brand" onClick={goHome}>PULSE<span className="brand-dot">·</span></button><div className="nav-center"><span>HUMAN RELAY / 03</span><span className="live-dot"><Radio size={13}/> LIVE</span></div><div className="nav-actions"><button className="nav-reset" onClick={()=>setScreen('mine')}><Clock3 size={15}/> MY PULSES</button><button className="nav-reset" onClick={newPulse}><RotateCcw size={15}/> NEW</button></div></header>
-    {liveEvent&&<div className="live-toast"><span className="toast-dot"/>{liveEvent}</div>}
+function MotionButton({ children, className = '', onClick, disabled = false }) {
+  return <motion.button type="button" disabled={disabled} onClick={onClick} whileHover={disabled ? undefined : { scale: 1.035, rotate: 0.6 }} whileTap={disabled ? undefined : { scale: 0.95 }} transition={spring} className={`group inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold tracking-[-0.01em] transition-colors duration-200 hover:border-white/20 focus-visible:outline-2 focus-visible:outline-cyan-300 active:border-white/30 disabled:cursor-not-allowed disabled:opacity-45 ${className}`}>{children}</motion.button>;
+}
 
-    {screen==='home'&&<section className="screen home-screen"><div className="grid-label">01 — START</div><div className="home-grid"><div className="hero-lockup"><p className="kicker">A HUMAN RELAY</p><h1>Start<br/><em>something.</em></h1><p className="hero-sub">A small thing moves through strangers. Each person changes it once. The result belongs to everyone.</p><div className="hero-signal"><span className="signal-line"/><span>LIVE HUMAN SYSTEM</span><Waves size={14}/></div></div><div className="launch-panel glass-panel"><div className="panel-index">01 / CREATE</div><label>CHOOSE A MEDIUM</label><div className="mode-switch"><button className={seedType==='text'?'active':''} onClick={()=>setSeedType('text')}><Type size={14}/> TEXT</button><button className={seedType==='form'?'active':''} onClick={()=>setSeedType('form')}><Shapes size={14}/> FORM</button><button className={seedType==='color'?'active':''} onClick={()=>setSeedType('color')}><Palette size={14}/> COLOR</button></div>{seedType==='text'&&<textarea value={seed} onChange={e=>setSeed(e.target.value)} placeholder="Start with an idea…" maxLength={180}/>} {seedType==='form'&&<div className="visual-studio"><div className="visual-stage"><div className={`artifact ${formShape}`} style={visualStyle({type:'form',shape:formShape,hue:formColor,size:formSize,rotation:0,glow:.26})}/></div><div className="shape-grid">{FORM_SHAPES.map(s=><button key={s} className={formShape===s?'active':''} onClick={()=>setFormShape(s)} aria-label={s}>{s==='circle'?'●':s==='square'?'■':s==='triangle'?'▲':'✦'}</button>)}</div><div className="color-grid">{FORM_COLORS.map(c=><button key={c.name} className={formColor===c.h?'active':''} style={{background:c.value}} onClick={()=>setFormColor(c.h)} aria-label={c.name}/>)}</div><div className="control-row"><label>SIZE</label><input type="range" min=".88" max="1.16" step=".01" value={formSize} onChange={e=>setFormSize(Number(e.target.value))}/></div></div>}{seedType==='color'&&<div className="visual-studio"><div className="visual-stage"><div className="color-pulse" style={{background:`conic-gradient(from 28deg,hsl(${formColor} 82% 58%),hsl(${adjustHue(formColor,48)} 92% 66%),hsl(${adjustHue(formColor,-34)} 90% 56%),hsl(${formColor} 82% 58%))`}}/></div><div className="color-grid">{FORM_COLORS.map(c=><button key={c.name} className={formColor===c.h?'active':''} style={{background:c.value}} onClick={()=>setFormColor(c.h)} aria-label={c.name}/>)}</div></div>}<button className="black-button" onClick={createRelay} disabled={busy}>{busy?<LoaderCircle className="spin" size={17}/>:<Sparkles size={17}/>} START A PULSE <ArrowRight size={17}/></button><div className="starter-list">{seedType==='text'&&STARTERS.map(item=><button key={item} onClick={()=>setSeed(item)}>{item}</button>)}</div><div className="split-line"><span>OR</span></div><button className="outline-button" onClick={joinPulse} disabled={busy}><Users size={17}/> JOIN A STRANGER'S PULSE <ArrowRight size={17}/></button></div></div>{error&&<div className="error-bar">{error}</div>}<div className="home-foot"><span>TEXT</span><span>FORM</span><span>COLOR</span><span>JUST THE RELAY</span></div></section>}
+export default function Page() {
+  const [screen, setScreen] = useState('home');
+  const [relay, setRelay] = useState(null);
+  const [token, setToken] = useState('');
+  const [role, setRole] = useState('');
+  const [myPulses, setMyPulses] = useState([]);
+  const [kind, setKind] = useState('form');
+  const [seed, setSeed] = useState('');
+  const [shape, setShape] = useState('circle');
+  const [hue, setHue] = useState(190);
+  const [mode, setMode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [event, setEvent] = useState('');
+  const [copied, setCopied] = useState(false);
 
-    {screen==='mine'&&<section className="screen waiting-screen"><div className="grid-label">01 — YOUR PULSES</div><div className="mine-wrap glass-panel"><div className="result-top"><div><p className="kicker">LOCAL MEMORY</p><h2>Your<br/><em>pulses.</em></h2></div><div className="result-stamp"><span>{String(myPulses.length).padStart(2,'0')}</span><small>SAVED</small></div></div>{myPulses.length===0?<div className="empty-state"><p>No saved Pulses yet.</p><button className="black-button" onClick={goHome}><Sparkles size={17}/> START YOUR FIRST PULSE <ArrowRight size={17}/></button></div>:<div className="pulse-list">{myPulses.map(p=><button className="pulse-list-item" key={p.id} onClick={()=>resumePulse(p)}><span className={`status-mark ${p.status==='complete'?'complete':''}`}/><span className="pulse-list-copy"><small>{p.role==='creator'?'YOU STARTED':'YOU JOINED'} · {p.status?.toUpperCase()} · {asLabel(parsePayload(p.seed)?.type||'text')}</small><strong>{parsePayload(p.seed)?.type?asLabel(parsePayload(p.seed).type):p.seed}</strong></span><span className="pulse-list-id">{String(p.id).slice(0,8).toUpperCase()} <ArrowRight size={16}/></span></button>)}</div>}{error&&<div className="error-bar">{error}</div>}</div></section>}
+  const steps = stepsOf(relay);
+  const count = relay?.step_count ?? steps.length;
+  const complete = relay?.status === 'complete' || count >= MAX_STEPS;
+  const artifact = payloadOf(relay);
+  const actions = artifact.type === 'form' ? FORM_ACTIONS : artifact.type === 'color' ? COLOR_ACTIONS : TEXT_ACTIONS;
 
-    {screen==='waiting'&&relay&&!isComplete&&<section className="screen waiting-screen"><div className="grid-label">02 — THE PULSE IS MOVING</div><div className="waiting-grid"><div><p className="kicker"><span className="pulse-ring"/>{currentCount===0?'WAITING FOR A STRANGER':'A STRANGER JUST MOVED IT'}</p><h2>{role==='creator'?<>Someone else<br/><em>has your spark.</em></>:<>You just moved<br/><em>someone's spark.</em></>}</h2><p className="waiting-copy">{currentCount===0?'This Pulse stays discoverable even when you leave.':'Your move is now part of the relay. The next stranger can continue it.'}</p><Artifact relay/><div className="live-relay glass-panel"><div className="live-relay-head"><span>LIVE TRACE</span><span>{currentCount} / 3 MOVES</span></div><div className="relay-stream"><div className="stream-item seed-item"><span className="stream-dot"/><div><small>STARTER · {asLabel(parsePayload(relay.seed)?.type||'text')}</small><p>{parsePayload(relay.seed)?.type?'A visual seed entered the relay.':relay.seed}</p></div></div>{steps.map((step,index)=><div className="stream-item reveal-item" key={`${index}-${step.at}`}><span className="stream-dot"/><div><small>STRANGER {index+1}</small><p>{parsePayload(step.output)?asLabel(parsePayload(step.output).type)+' · mutation':step.output}</p></div></div>)}{currentCount<3&&<div className="stream-item ghost-item"><span className="stream-dot waiting-dot"/><div><small>NEXT STRANGER</small><p>Waiting for a human to continue this.</p></div></div>}</div></div><div className="relay-id-box"><span>PULSE ID</span><strong>{String(relay.id).slice(0,8).toUpperCase()}</strong><button onClick={copyId}>{copied?<Check size={15}/>:<Copy size={15}/>}</button></div></div><div className="waiting-orbit"><div className="orbit-sweep"/><div className="orbit-core"><span>{String(currentCount).padStart(2,'0')}</span><small>/ 03</small></div>{[0,1,2].map(i=><span key={i} className={`orbit-node node-${i} ${i<currentCount?'done':''}`}/>)}</div></div></section>}
+  const loadHistory = () => safeJson(localStorage.getItem(PULSES_KEY) || '[]', []);
+  const writeHistory = (entry) => {
+    const current = loadHistory();
+    const next = [entry, ...current.filter((item) => item.id !== entry.id)].slice(0, 24);
+    localStorage.setItem(PULSES_KEY, JSON.stringify(next));
+    setMyPulses(next);
+  };
+  const sessionMap = () => safeJson(localStorage.getItem(SESSIONS_KEY) || '{}', {});
+  const saveSession = (id, data) => {
+    const sessions = sessionMap();
+    sessions[id] = data;
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+  };
 
-    {screen==='turn'&&relay&&!isComplete&&<section className="screen turn-screen"><div className="grid-label">{String(currentCount+2).padStart(2,'0')} — YOUR TURN</div><div className="turn-layout"><aside className="source-column"><span className="kicker">THE RELAY SO FAR</span><div className="source-number">{String(currentCount+1).padStart(2,'0')}</div><Artifact relay/><div className="history-mini">{steps.map((s,i)=><div key={`${i}-${s.at}`}><small>STRANGER {i+1}</small><p>{parsePayload(s.output)?'A visual mutation':' '+s.output}</p></div>)}</div><div className="mini-status"><span>{currentCount}/03 MOVES</span><span>{asLabel(type)}</span></div></aside><div className="action-column"><span className="kicker">A TINY TASK</span><h2>{instruction}</h2><div className="choice-grid">{actions.map(item=><button key={item.code} className={`choice-card ${mode===item.code?'selected':''}`} onClick={()=>setMode(item.code)}><strong>{item.title}</strong><span>{item.copy}</span><i>{mode===item.code?'✓':'↗'}</i></button>)}</div>{type==='text'&&currentCount>0&&<div className="short-input"><input value={detail} onChange={e=>setDetail(e.target.value)} maxLength={currentCount===1?60:48} placeholder={currentCount===1?'Add one tiny detail…':'Give the final form a name…'} autoFocus/><span>{detail.length}/{currentCount===1?60:48}</span></div>}<button className="black-button large" onClick={submitStep} disabled={busy}>{busy?<LoaderCircle className="spin" size={18}/>:<ArrowRight size={18}/>} PASS IT ON</button>{error&&<div className="inline-error">{error}</div>}</div></div></section>}
+  useEffect(() => {
+    setMyPulses(loadHistory());
+    const sessions = sessionMap();
+    const ids = Object.keys(sessions);
+    const latest = ids.at(-1);
+    if (!latest) return;
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.from('relays').select('*').eq('id', latest).maybeSingle();
+      if (!alive || !data) return;
+      const session = sessions[latest] || {};
+      setRelay(data); setRole(session.role || 'creator'); setToken(session.token || '');
+      setScreen(data.status === 'complete' ? 'result' : 'waiting');
+    })();
+    return () => { alive = false; };
+  }, []);
 
-    {screen==='result'&&relay&&<section className="screen result-screen"><div className="grid-label">04 — RESULT</div><div className="result-top"><div><p className="kicker">THE RELAY RETURNED</p><h2>Look what<br/><em>happened.</em></h2></div><div className="result-stamp"><span>03</span><small>HUMANS</small></div></div><Artifact relay large/><div className="timeline-final"><div className="final-seed"><span>00 · START · {asLabel(parsePayload(relay.seed)?.type||'text')}</span><p>{parsePayload(relay.seed)?'A visual idea entered the relay.':relay.seed}</p></div>{steps.map((step,index)=><div className="final-step" key={`${index}-${step.at}`}><span>{String(index+1).padStart(2,'0')} · STRANGER</span><p>{parsePayload(step.output)?'A visual mutation.':step.output}</p></div>)}</div><div className="result-actions"><button className="black-button" onClick={newPulse}><Sparkles size={17}/> START ANOTHER <ArrowRight size={17}/></button><button className="outline-button" onClick={copyId}>{copied?<Check size={17}/>:<Copy size={17}/>} COPY PULSE ID</button></div></section>}
-    <footer className="pulse-footer"><span>01 / START</span><span>HUMAN RELAY</span><span>0.5</span></footer>
-  </main>;
+  useEffect(() => {
+    if (!relay?.id) return undefined;
+    const channel = supabase.channel(`pulse-${relay.id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'relays', filter: `id=eq.${relay.id}` }, (payload) => {
+      setRelay(payload.new);
+      setEvent(payload.new.step_count > count ? 'PULSE MOVED' : payload.new.status === 'active' ? 'STRANGER JOINED' : 'PULSE UPDATED');
+      window.setTimeout(() => setEvent(''), 1800);
+      if (payload.new.status === 'complete') setScreen('result');
+    }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [relay?.id, count]);
+
+  const createPulse = async () => {
+    setError(''); setBusy(true);
+    if (kind === 'text' && seed.trim().length < 4) { setBusy(false); return setError('Give the Pulse a starting idea.'); }
+    const payload = seedPayload(kind, seed, shape, hue);
+    const { data, error: dbError } = await supabase.rpc('create_relay', { p_seed: payload });
+    setBusy(false);
+    if (dbError) return setError(dbError.message);
+    setRelay(data); setRole('creator'); setToken(''); saveSession(data.id, { role: 'creator', token: '' }); writeHistory({ id: data.id, role: 'creator', seed: data.seed, status: data.status, updatedAt: Date.now() }); setEvent('PULSE CREATED'); setScreen('waiting');
+  };
+
+  const joinPulse = async () => {
+    setError(''); setBusy(true);
+    const { data, error: dbError } = await supabase.rpc('claim_relay');
+    setBusy(false);
+    if (dbError) return setError(dbError.message);
+    if (!data) return setError('No Pulse is waiting right now. Leave one in the pool and try again.');
+    setRelay(data.relay); setRole('stranger'); setToken(data.token); saveSession(data.relay.id, { role: 'stranger', token: data.token }); writeHistory({ id: data.relay.id, role: 'stranger', seed: data.relay.seed, status: data.relay.status, updatedAt: Date.now() }); setEvent('STRANGER JOINED'); setScreen('turn');
+  };
+
+  const submitMove = async () => {
+    if (!relay || !token || !mode) return;
+    setBusy(true); setError('');
+    let output;
+    if (artifact.type === 'text') {
+      const label = { STRANGER: 'stranger', SOFTER: 'softer', BIGGER: 'bigger' }[mode];
+      output = JSON.stringify({ type: 'text', text: `${artifact.text} → ${label}.` });
+    } else {
+      output = JSON.stringify(mutate(artifact, mode, count));
+    }
+    const { data, error: dbError } = await supabase.rpc('submit_relay_step', { p_relay_id: relay.id, p_token: token, p_output: output });
+    setBusy(false);
+    if (dbError) return setError(dbError.message);
+    setRelay(data); saveSession(relay.id, { role, token: '' }); setToken(''); setMode(''); writeHistory({ id: data.id, role, seed: data.seed, status: data.status, updatedAt: Date.now() }); setEvent(data.status === 'complete' ? 'PULSE COMPLETE' : 'MOVE PASSED'); setScreen(data.status === 'complete' ? 'result' : 'waiting');
+  };
+
+  const resumePulse = async (entry) => {
+    setError(''); setBusy(true);
+    const { data, error: dbError } = await supabase.from('relays').select('*').eq('id', entry.id).maybeSingle();
+    setBusy(false);
+    if (dbError || !data) return setError('That Pulse is no longer available.');
+    const session = sessionMap()[entry.id] || {};
+    setRelay(data); setRole(entry.role); setToken(session.token || ''); setScreen(data.status === 'complete' ? 'result' : session.token ? 'turn' : 'waiting');
+  };
+
+  const goHome = () => setScreen('home');
+  const newPulse = () => { setRelay(null); setRole(''); setToken(''); setMode(''); setSeed(''); setScreen('home'); setError(''); setEvent(''); };
+  const copyId = async () => { if (!relay?.id) return; await navigator.clipboard.writeText(relay.id); setCopied(true); window.setTimeout(() => setCopied(false), 1000); };
+
+  const creationPreview = useMemo(() => {
+    if (kind === 'text') return { type: 'text', text: seed || STARTERS[0] };
+    if (kind === 'color') return { type: 'color', hue, sat: 84, light: 58, angle: 28 };
+    return { type: 'form', shape, hue, size: 1, rotation: 0, glow: .22 };
+  }, [kind, seed, shape, hue]);
+
+  return (
+    <main className="relative h-dvh w-full overflow-hidden bg-[#090A0F] text-white selection:bg-cyan-300 selection:text-[#090A0F]">
+      <div className="pulse-grid" />
+      <div className="pulse-grain" />
+      <motion.div className="pointer-events-none absolute -left-32 top-10 h-72 w-72 rounded-full bg-cyan-300/[0.05] blur-3xl" animate={{ x: [0, 50, -20, 0], y: [0, -20, 30, 0], scale: [1, 1.15, .9, 1] }} transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }} />
+      <motion.div className="pointer-events-none absolute -right-40 bottom-0 h-80 w-80 rounded-full bg-purple-400/[0.045] blur-3xl" animate={{ x: [0, -30, 20, 0], y: [0, 22, -18, 0] }} transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut', delay: 1 }} />
+
+      <header className="relative z-20 mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 sm:px-8">
+        <button onClick={goHome} className="flex items-center gap-2 rounded-xl px-2 py-2 text-sm font-black tracking-[0.18em] hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-cyan-300 active:scale-95 transition-transform">
+          PULSE <span className="text-cyan-300">●</span>
+        </button>
+        <div className="hidden items-center gap-3 text-xs font-semibold text-white/55 sm:flex"><span>HUMAN RELAY / 03</span><span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5"><span className="h-1.5 w-1.5 rounded-full bg-lime-300 pulse-lime-glow" /> LIVE</span></div>
+        <div className="flex items-center gap-2">
+          <MotionButton onClick={() => setScreen('mine')} className="bg-[#12141C]/80 text-white/80 hover:bg-[#171a24]"><Clock3 size={15} /> MY PULSES</MotionButton>
+          <MotionButton onClick={newPulse} className="bg-transparent text-white/55 hover:bg-white/[0.04]"><RotateCcw size={15} /> NEW</MotionButton>
+        </div>
+      </header>
+
+      <AnimatePresence>{event && <motion.div initial={{ y: -12, opacity: 0, scale: .96 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: -8, opacity: 0 }} transition={spring} className="fixed left-1/2 top-5 z-50 -translate-x-1/2 rounded-full border border-white/10 bg-[#12141C]/90 px-4 py-2 text-xs font-bold tracking-[0.16em] text-white shadow-[0_0_15px_rgba(85,231,255,.12)] backdrop-blur-md">{event}</motion.div>}</AnimatePresence>
+
+      <AnimatePresence mode="wait">
+        {screen === 'home' && (
+          <motion.section key="home" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={softSpring} className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-7xl items-center px-5 pb-8 sm:px-8">
+            <div className="grid w-full grid-cols-1 gap-6 lg:grid-cols-[1.05fr_.95fr]">
+              <div className="flex min-h-[420px] flex-col justify-center lg:min-h-0">
+                <span className="mb-5 text-xs font-bold uppercase tracking-[0.22em] text-white/45">One small thing. Three strangers.</span>
+                <h1 className="max-w-3xl text-[clamp(3.5rem,8vw,7.5rem)] font-black leading-[.88] tracking-[-0.08em]">Start<br /><span className="text-cyan-300">something.</span></h1>
+                <p className="mt-6 max-w-xl text-sm leading-6 text-white/60 sm:text-base">Create a Pulse, leave it behind, and let another person change it. The next move is never yours to predict.</p>
+                <div className="mt-8 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.14em] text-white/45"><span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />No feed</span><span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2"><span className="h-1.5 w-1.5 rounded-full bg-lime-300" />No profiles</span><span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2"><span className="h-1.5 w-1.5 rounded-full bg-red-400" />Only the relay</span></div>
+              </div>
+
+              <motion.div layout className="flex min-h-[520px] items-center justify-center rounded-3xl border border-white/10 bg-[#12141C]/82 p-5 backdrop-blur-md shadow-[0_0_15px_rgba(255,255,255,.03)] sm:p-7">
+                <div className="w-full max-w-lg">
+                  <div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">Create</p><p className="mt-1 text-sm font-semibold text-white">Choose what gets passed on.</p></div><span className="font-mono text-xs text-white/40">01 / 03</span></div>
+                  <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/10 p-1">
+                    {[['text', Type, 'TEXT'], ['form', Shapes, 'FORM'], ['color', Palette, 'COLOR']].map(([value, Icon, label]) => <button key={value} onClick={() => setKind(value)} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-bold transition ${kind === value ? 'bg-white/[0.09] text-white' : 'text-white/40 hover:bg-white/[0.04] hover:text-white/75'} focus-visible:outline-2 focus-visible:outline-cyan-300 active:scale-[.97]`}><Icon size={15} /> {label}</button>)}
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-white/10 bg-[#0E1016] p-4">
+                    <div className="mb-4 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">Preview</span><span className="font-mono text-xs text-white/35">{kind.toUpperCase()}</span></div>
+                    <div className="flex min-h-40 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.02] p-5"><VisualArtifact payload={creationPreview} /></div>
+                  </div>
+
+                  {kind === 'text' && <div className="mt-4"><textarea value={seed} onChange={(e) => setSeed(e.target.value)} maxLength={180} placeholder="Give the next person a starting idea…" className="h-24 w-full resize-none rounded-2xl border border-white/10 bg-[#0E1016] px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-cyan-300/40 focus:outline-none" /> <div className="mt-2 flex flex-wrap gap-2">{STARTERS.map((item) => <button key={item} onClick={() => setSeed(item)} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/50 transition hover:border-white/20 hover:text-white/80 focus-visible:outline-2 focus-visible:outline-cyan-300 active:scale-95">{item}</button>)}</div></div>}
+                  {kind === 'form' && <div className="mt-4 grid grid-cols-[1fr_auto] gap-4"><div><p className="mb-2 text-xs font-bold text-white/45">FORM</p><div className="grid grid-cols-4 gap-2">{FORM_SHAPES.map((item) => <button key={item} onClick={() => setShape(item)} className={`h-11 rounded-xl border text-xs font-bold uppercase transition ${shape === item ? 'border-cyan-300/50 bg-cyan-300/[0.06] text-cyan-200' : 'border-white/10 bg-white/[0.02] text-white/45 hover:border-white/20'} focus-visible:outline-2 focus-visible:outline-cyan-300 active:scale-95`}>{item}</button>)}</div></div><div><p className="mb-2 text-xs font-bold text-white/45">COLOR</p><div className="flex gap-2">{COLORS.map((color) => <button key={color.label} aria-label={color.label} onClick={() => setHue(color.hue)} className={`h-11 w-11 rounded-xl border transition ${hue === color.hue ? 'border-white/60' : 'border-white/10'} focus-visible:outline-2 focus-visible:outline-cyan-300 active:scale-95`} style={{ background: `hsl(${color.hue} 88% 62%)` }} />)}</div></div></div>}
+                  {kind === 'color' && <div className="mt-4"><p className="mb-2 text-xs font-bold text-white/45">CHOOSE A COLOR</p><div className="grid grid-cols-4 gap-2">{COLORS.map((color) => <button key={color.label} onClick={() => setHue(color.hue)} className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-xs font-bold transition ${hue === color.hue ? 'border-white/40 bg-white/[0.06]' : 'border-white/10 bg-white/[0.02] hover:border-white/20'} focus-visible:outline-2 focus-visible:outline-cyan-300 active:scale-95`}><span className="h-3 w-3 rounded-full" style={{ background: `hsl(${color.hue} 88% 62%)` }} />{color.label}</button>)}</div></div>}
+
+                  <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2"><MotionButton onClick={createPulse} disabled={busy} className="bg-white text-[#090A0F] hover:bg-white/90">{busy ? <LoaderCircle size={16} className="animate-spin" /> : <Sparkles size={16} />} START A PULSE <ArrowRight size={16} /></MotionButton><MotionButton onClick={joinPulse} disabled={busy} className="bg-[#12141C] text-white/80 hover:bg-[#171a24]"><Users size={16} /> JOIN A STRANGER'S PULSE</MotionButton></div>
+                  {error && <p className="mt-3 rounded-xl border border-red-300/20 bg-red-300/[0.04] px-3 py-2 text-xs font-semibold text-red-200 break-words">{error}</p>}
+                </div>
+              </motion.div>
+            </div>
+          </motion.section>
+        )}
+
+        {screen === 'mine' && (
+          <motion.section key="mine" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={softSpring} className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-5xl items-center px-5 pb-8 sm:px-8">
+            <div className="w-full rounded-3xl border border-white/10 bg-[#12141C]/82 p-5 backdrop-blur-md sm:p-7"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">Local memory</p><h2 className="mt-1 text-4xl font-black tracking-[-0.06em]">Your pulses.</h2></div><span className="font-mono text-xs text-white/40">{String(myPulses.length).padStart(2,'0')} SAVED</span></div><div className="mt-5 grid gap-2 overflow-y-auto pr-1 sm:max-h-[62dvh]">{myPulses.length === 0 ? <div className="rounded-2xl border border-white/10 bg-[#0E1016] p-6 text-sm text-white/55">No saved Pulses yet. Start one and leave it in the pool.</div> : myPulses.map((item) => <motion.button key={item.id} whileHover={{ x: 3 }} whileTap={{ scale: .985 }} transition={spring} onClick={() => resumePulse(item)} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-[#0E1016] px-4 py-4 text-left transition hover:border-white/20 focus-visible:outline-2 focus-visible:outline-cyan-300"><span className={`h-2.5 w-2.5 rounded-full ${item.status === 'complete' ? 'bg-lime-300' : 'bg-cyan-300'}`} /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold uppercase tracking-[0.14em] text-white/40">{item.role === 'creator' ? 'YOU STARTED' : 'YOU JOINED'} · {item.status?.toUpperCase()}</span><span className="mt-1 block truncate text-sm font-semibold text-white/80">{safeJson(item.seed, null)?.type ? `${safeJson(item.seed, {}).type.toUpperCase()} PULSE` : item.seed}</span></span><span className="font-mono text-xs text-white/35">{String(item.id).slice(0, 8).toUpperCase()}</span><ArrowRight size={16} className="text-white/35" /></motion.button>)}</div></div>
+          </motion.section>
+        )}
+
+        {screen === 'waiting' && relay && !complete && (
+          <motion.section key="waiting" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={softSpring} className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-6xl items-center px-5 pb-8 sm:px-8">
+            <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-[1fr_1.15fr]">
+              <div className="rounded-3xl border border-white/10 bg-[#12141C]/82 p-6 backdrop-blur-md sm:p-8"><div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-white/45"><span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" />{role === 'creator' ? 'Waiting for a stranger' : 'Move passed on'}</div><h2 className="mt-5 text-5xl font-black leading-[.92] tracking-[-0.07em] sm:text-6xl">{role === 'creator' ? <>Your spark is<br /><span className="text-cyan-300">out there.</span></> : <>Your move is<br /><span className="text-lime-300">in motion.</span></>}</h2><p className="mt-5 max-w-lg text-sm leading-6 text-white/55">{role === 'creator' ? 'You do not need to keep this screen open. The Pulse stays in the network until another person picks it up.' : 'Someone else can continue this Pulse now. Your screen can stay closed; the relay keeps moving.'}</p><div className="mt-8 flex items-center gap-2 text-xs text-white/40"><span className="font-mono">{String(count).padStart(2, '0')}</span><span>/</span><span className="font-mono">03 MOVES</span><span className="ml-auto flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-lime-300" />LIVE</span></div></div>
+              <div className="rounded-3xl border border-white/10 bg-[#0E1016] p-5 sm:p-7"><div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">Pulse trace</span><span className="font-mono text-xs text-white/35">{String(count).padStart(2,'0')} / 03</span></div><div className="mt-4 rounded-2xl border border-white/10 bg-[#12141C] p-5"><div className="flex justify-center border-b border-white/8 pb-5"><VisualArtifact payload={artifact} large /></div><div className="mt-5 space-y-3">{[{ label:'START', value: payloadOf({ seed: relay.seed }).text || 'Pulse started' }, ...steps.map((step, i) => ({ label: `STRANGER ${i + 1}`, value: payloadOf({ seed: step.output }).text || 'Visual move' }))].map((item, i) => <motion.div key={`${i}-${item.label}`} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ ...softSpring, delay: i * .08 }} className="flex gap-3"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-white/20" /><div className="min-w-0"><span className="text-xs font-bold uppercase tracking-[0.12em] text-white/35">{item.label}</span><p className="mt-1 text-sm leading-5 text-white/75 break-words">{item.value}</p></div></motion.div>)}</div></div><div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-[#12141C] px-4 py-3"><span className="text-xs font-bold uppercase tracking-[0.14em] text-white/35">Pulse ID</span><div className="flex items-center gap-2"><span className="font-mono text-xs text-white/55">{String(relay.id).slice(0, 8).toUpperCase()}</span><button onClick={copyId} className="rounded-xl p-2 text-white/40 transition hover:bg-white/[0.05] hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 active:scale-95">{copied ? <Check size={15} /> : <Copy size={15} />}</button></div></div></div>
+            </div>
+          </motion.section>
+        )}
+
+        {screen === 'turn' && relay && !complete && (
+          <motion.section key="turn" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={softSpring} className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-6xl items-center px-5 pb-8 sm:px-8">
+            <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-[.86fr_1.14fr]">
+              <div className="rounded-3xl border border-white/10 bg-[#12141C]/82 p-6 backdrop-blur-md sm:p-7"><div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">The relay so far</span><span className="font-mono text-xs text-white/35">{String(count).padStart(2,'0')} / 03</span></div><div className="mt-7 rounded-2xl border border-white/10 bg-[#0E1016] p-5"><VisualArtifact payload={artifact} large /><div className="mt-5 border-t border-white/8 pt-4"><span className="text-xs font-bold uppercase tracking-[0.14em] text-white/35">Current artifact</span><p className="mt-2 text-sm text-white/65">You are looking at what the previous stranger left behind.</p></div></div><div className="mt-4 flex gap-2">{Array.from({ length: MAX_STEPS }).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i < count ? 'bg-lime-300' : 'bg-white/10'}`} />)}</div></div>
+              <div className="rounded-3xl border border-white/10 bg-[#12141C]/82 p-6 backdrop-blur-md sm:p-7"><span className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">Your turn</span><h2 className="mt-3 text-4xl font-black tracking-[-0.06em] sm:text-5xl">Make one move.</h2><p className="mt-3 text-sm leading-6 text-white/55">No essays. No profile. Just change the thing once.</p><div className="mt-6 grid gap-2">{actions.map(([code, label]) => <motion.button key={code} whileHover={{ y: -2, scale: 1.015 }} whileTap={{ scale: .975 }} transition={spring} onClick={() => setMode(code)} className={`flex items-center justify-between rounded-2xl border px-4 py-4 text-left transition focus-visible:outline-2 focus-visible:outline-cyan-300 ${mode === code ? 'border-cyan-300/45 bg-cyan-300/[0.06]' : 'border-white/10 bg-[#0E1016] hover:border-white/20'}`}><span><span className="block text-sm font-bold">{label}</span><span className="mt-1 block text-xs text-white/40">{artifact.type === 'form' ? 'Change the visual object.' : artifact.type === 'color' ? 'Change its visual energy.' : 'Push the idea forward.'}</span></span><ArrowRight size={17} className={mode === code ? 'text-cyan-300' : 'text-white/25'} /></motion.button>)} </div><MotionButton onClick={submitMove} disabled={!mode || busy} className="mt-4 w-full bg-white text-[#090A0F] hover:bg-white/90">{busy ? <LoaderCircle size={16} className="animate-spin" /> : <Waves size={16} />} PASS IT ON</MotionButton>{error && <p className="mt-3 rounded-xl border border-red-300/20 bg-red-300/[0.04] px-3 py-2 text-xs font-semibold text-red-200 break-words">{error}</p>}</div>
+            </div>
+          </motion.section>
+        )}
+
+        {screen === 'result' && relay && (
+          <motion.section key="result" initial={{ opacity: 0, scale: .985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={softSpring} className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-5xl items-center px-5 pb-8 sm:px-8"><div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-[1.15fr_.85fr]"><div className="rounded-3xl border border-white/10 bg-[#12141C]/82 p-6 backdrop-blur-md sm:p-8"><span className="text-xs font-bold uppercase tracking-[0.18em] text-lime-300">The relay returned</span><h2 className="mt-3 text-6xl font-black leading-[.9] tracking-[-0.08em] sm:text-7xl">Look what<br /><span className="text-cyan-300">happened.</span></h2><div className="mt-7 flex items-center justify-center rounded-3xl border border-white/10 bg-[#0E1016] p-8"><VisualArtifact payload={artifact} large /></div></div><div className="rounded-3xl border border-white/10 bg-[#12141C]/82 p-6 backdrop-blur-md sm:p-7"><span className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">Three strangers. One object.</span><div className="mt-5 space-y-3">{[{ label:'START', value: payloadOf({ seed: relay.seed }).text || 'Origin' }, ...steps.map((step, i) => ({ label: `STRANGER ${i + 1}`, value: payloadOf({ seed: step.output }).text || 'Changed it' }))].map((item, i) => <motion.div key={`${i}-${item.label}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ ...softSpring, delay: i * .08 }} className="rounded-2xl border border-white/10 bg-[#0E1016] p-4"><span className="text-xs font-bold uppercase tracking-[0.12em] text-white/35">{item.label}</span><p className="mt-2 text-sm leading-5 text-white/75 break-words">{item.value}</p></motion.div>)}</div><div className="mt-4 grid grid-cols-2 gap-2"><MotionButton onClick={newPulse} className="bg-white text-[#090A0F] hover:bg-white/90"><Sparkles size={16} /> START ANOTHER</MotionButton><MotionButton onClick={copyId} className="bg-[#0E1016] text-white/75 hover:bg-white/[0.06]">{copied ? <Check size={16} /> : <Copy size={16} />} COPY ID</MotionButton></div></div></div></motion.section>
+        )}
+      </AnimatePresence>
+      <footer className="pointer-events-none absolute bottom-3 left-0 right-0 z-20 mx-auto flex max-w-7xl items-center justify-between px-5 text-xs font-semibold text-white/25 sm:px-8"><span>01 / PULSE SYSTEM</span><span className="font-mono">0.6</span></footer>
+    </main>
+  );
 }
