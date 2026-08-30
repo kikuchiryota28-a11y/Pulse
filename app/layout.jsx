@@ -1,5 +1,6 @@
 import "../src/styles.css";
 import "../src/styles-v3.css";
+import "../src/styles-v4.css";
 
 export const metadata = {
   title: "Pulse — Human Relay",
