@@ -1,30 +1,39 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
-  --pulse-bg: #090a0f;
-  --pulse-surface: #12141c;
-  --pulse-border: rgba(255,255,255,.08);
-  --pulse-muted: #8d93a1;
-  --pulse-text: #f5f7fb;
-  --pulse-cyan: #55e7ff;
-  --pulse-lime: #b8ff2c;
-  --pulse-red: #ff5c68;
+  color-scheme: light;
+  --pulse-bg: #e8e1d2;
+  --pulse-surface: #f4f0e6;
+  --pulse-surface-2: #ded6c4;
+  --pulse-ink: #252820;
+  --pulse-muted: #686b5b;
+  --pulse-line: rgba(37,40,32,.14);
+  --pulse-olive: #667052;
+  --pulse-olive-dark: #4f5940;
+  --pulse-clay: #ad735c;
+  --pulse-paper: #faf7ef;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; background: var(--pulse-bg); }
-body { min-height: 100dvh; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--pulse-text); }
+body { min-height: 100dvh; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--pulse-ink); }
 button, input, textarea { font: inherit; }
-button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--pulse-cyan); outline-offset: 3px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--pulse-olive); outline-offset: 4px; }
 
-.pulse-grain { position: fixed; inset: 0; pointer-events: none; opacity: .045; background-image: radial-gradient(circle at 20% 20%, #fff 0.6px, transparent 0.7px); background-size: 6px 6px; mix-blend-mode: soft-light; }
-.pulse-grid { position: absolute; inset: 0; pointer-events: none; opacity: .055; background-size: 48px 48px; background-image: linear-gradient(rgba(255,255,255,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.16) 1px, transparent 1px); mask-image: radial-gradient(circle at 50% 40%, black, transparent 76%); }
+.pulse-grain { position: fixed; inset: 0; pointer-events: none; opacity: .18; z-index: 30; background-image: radial-gradient(circle at 20% 20%, rgba(37,40,32,.24) .55px, transparent .7px); background-size: 7px 7px; mix-blend-mode: multiply; }
+.pulse-grid { position: absolute; inset: 0; pointer-events: none; opacity: .13; background-size: 64px 64px; background-image: linear-gradient(rgba(37,40,32,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(37,40,32,.09) 1px, transparent 1px); mask-image: radial-gradient(circle at 50% 45%, black, transparent 78%); }
+.pulse-paper { background: rgba(244,240,230,.78); border: 1px solid var(--pulse-line); box-shadow: 0 18px 55px rgba(67,59,43,.10), inset 0 1px rgba(255,255,255,.55); backdrop-filter: blur(18px); }
+.pulse-ink { color: var(--pulse-ink); }
+.pulse-olive { color: var(--pulse-olive-dark); }
+.pulse-olive-bg { background: var(--pulse-olive); }
+.pulse-clay { color: var(--pulse-clay); }
+.pulse-object-shadow { box-shadow: 0 26px 70px rgba(70,62,43,.20), inset 0 1px rgba(255,255,255,.45); }
+.pulse-soft-shadow { box-shadow: 0 10px 32px rgba(70,62,43,.10); }
 
-.pulse-live-glow { box-shadow: 0 0 15px rgba(85,231,255,.15); }
-.pulse-lime-glow { box-shadow: 0 0 15px rgba(184,255,44,.16); }
-.pulse-red-glow { box-shadow: 0 0 15px rgba(255,92,104,.16); }
+::selection { background: #667052; color: #faf7ef; }
 
-@media (max-width: 768px) {
-  .pulse-grid { background-size: 36px 36px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
+
+@media (max-width: 768px) { .pulse-grid { background-size: 40px 40px; } }
