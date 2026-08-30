@@ -5,14 +5,11 @@ import { ArrowRight, Check, Copy, LoaderCircle, Radio, RotateCcw, Sparkles, User
 import { supabase } from '../lib/supabase';
 
 const MAX_STEPS = 3;
-const POLL_MS = 900;
-
 const STARTERS = [
   'A vending machine that only appears at midnight.',
   'The sound of rain on a city nobody has visited.',
   'A tiny door hidden somewhere in this room.',
 ];
-
 const MODES = [
   { title: 'MAKE IT STRANGER', code: 'STRANGER', copy: 'Push the idea somewhere unexpected.' },
   { title: 'MAKE IT SOFTER', code: 'SOFTER', copy: 'Give it a warmer, more human direction.' },
@@ -21,10 +18,9 @@ const MODES = [
 
 function readSteps(relay) { return Array.isArray(relay?.steps) ? relay.steps : []; }
 function latestOutput(relay) { const steps = readSteps(relay); return steps.length ? steps[steps.length - 1].output : relay.seed; }
-function buildOutput(source, mode, detail) {
-  const clean = detail.trim();
-  const label = { STRANGER: 'stranger', SOFTER: 'softer', BIGGER: 'bigger' }[mode];
-  return clean ? `${source} → ${label}: ${clean}` : `${source} → ${label}.`;
+function buildOutput(source, mode) {
+  const label = { STRANGER: 'stranger', SOFTER: 'softer', BIGGER: 'bigger' }[mode] || 'different';
+  return `${source} → ${label}.`;
 }
 
 export default function Page() {
@@ -34,6 +30,8 @@ export default function Page() {
   const [seed, setSeed] = useState('');
   const [mode, setMode] = useState('');
   const [detail, setDetail] = useState('');
+  const [role, setRole] = useState('');
+  const [liveEvent, setLiveEvent] = useState('');
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -49,17 +47,33 @@ export default function Page() {
     return 'Name what this has become. One short title.';
   }, [relay, currentCount]);
 
+  // Realtime is the primary sync path. The one-shot fetch also makes reconnects
+  // and missed events safe: the database remains the source of truth.
   useEffect(() => {
     if (!relay?.id) return undefined;
-    const poll = async () => {
+    let alive = true;
+    const refresh = async () => {
       const { data } = await supabase.from('relays').select('*').eq('id', relay.id).single();
-      if (data) {
-        setRelay(data);
-        if (data.status === 'complete') setScreen('result');
-      }
+      if (!alive || !data) return;
+      setRelay(data);
+      if (data.status === 'complete') setScreen('result');
     };
-    const timer = window.setInterval(poll, POLL_MS);
-    return () => window.clearInterval(timer);
+    refresh();
+    const channel = supabase
+      .channel(`relay:${relay.id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'relays', filter: `id=eq.${relay.id}` }, (payload) => {
+        const next = payload.new;
+        if (!alive) return;
+        setRelay(next);
+        setLiveEvent(next.step_count > currentCount ? 'A STRANGER JUST MOVED THE PULSE' : next.status === 'active' ? 'STRANGER JOINED' : 'PULSE UPDATED');
+        if (next.status === 'complete') setScreen('result');
+        window.setTimeout(() => setLiveEvent(''), 2400);
+      })
+      .subscribe();
+    return () => {
+      alive = false;
+      supabase.removeChannel(channel);
+    };
   }, [relay?.id]);
 
   const createRelay = async (value = seed) => {
@@ -68,7 +82,7 @@ export default function Page() {
     setBusy(true);
     const { data, error: dbError } = await supabase.rpc('create_relay', { p_seed: clean });
     setBusy(false); if (dbError) return setError(dbError.message);
-    setRelay(data); setSeed(''); setScreen('waiting');
+    setRelay(data); setRole('creator'); setSeed(''); setLiveEvent('PULSE CREATED'); setScreen('waiting');
   };
 
   const joinPulse = async () => {
@@ -76,7 +90,7 @@ export default function Page() {
     const { data, error: dbError } = await supabase.rpc('claim_relay');
     setBusy(false); if (dbError) return setError(dbError.message);
     if (!data) return setError('No Pulse is waiting right now. Start one and become the first spark.');
-    setRelay(data.relay); setToken(data.token); setMode(''); setDetail(''); setScreen('turn');
+    setRelay(data.relay); setToken(data.token); setRole('stranger'); setMode(''); setDetail(''); setLiveEvent('STRANGER JOINED'); setScreen('turn');
   };
 
   const submitStep = async () => {
@@ -86,8 +100,8 @@ export default function Page() {
     if (currentCount === 1 && detail.trim().length < 2) return setError('Add one small detail.');
     if (currentCount === 2 && detail.trim().length < 2) return setError('Give it a short title.');
     let output = source;
-    if (currentCount === 0) output = buildOutput(source, mode, '');
-    if (currentCount === 1) output = buildOutput(source, mode, detail);
+    if (currentCount === 0) output = buildOutput(source, mode);
+    if (currentCount === 1) output = `${source} → detail: ${detail.trim()}`;
     if (currentCount === 2) output = `${detail.trim()} — born from ${source}`;
     setBusy(true);
     const { data, error: dbError } = await supabase.rpc('submit_relay_step', { p_relay_id: relay.id, p_token: token, p_output: output.slice(0, 180) });
@@ -95,7 +109,7 @@ export default function Page() {
     setRelay(data); setToken(''); setMode(''); setDetail(''); setScreen(data.status === 'complete' ? 'result' : 'waiting');
   };
 
-  const reset = () => { setRelay(null); setToken(''); setSeed(''); setMode(''); setDetail(''); setError(''); setCopied(false); setScreen('home'); };
+  const reset = () => { setRelay(null); setToken(''); setSeed(''); setMode(''); setDetail(''); setRole(''); setLiveEvent(''); setError(''); setCopied(false); setScreen('home'); };
   const copyId = async () => { if (!relay?.id) return; await navigator.clipboard.writeText(relay.id); setCopied(true); window.setTimeout(() => setCopied(false), 1200); };
 
   return (
@@ -106,6 +120,7 @@ export default function Page() {
         <div className="nav-center"><span>HUMAN RELAY / 03</span><span className="live-dot"><Radio size={13} /> LIVE</span></div>
         <button className="nav-reset" onClick={reset}><RotateCcw size={15} /> NEW</button>
       </header>
+      {liveEvent && <div className="live-toast"><span className="toast-dot" />{liveEvent}</div>}
 
       {screen === 'home' && <section className="screen home-screen">
         <div className="grid-label">01 — START</div>
@@ -119,8 +134,8 @@ export default function Page() {
       {screen === 'waiting' && relay && !isComplete && <section className="screen waiting-screen">
         <div className="grid-label">02 — THE PULSE IS MOVING</div>
         <div className="waiting-grid">
-          <div><p className="kicker"><span className="pulse-ring" /> {currentCount === 0 ? 'WAITING FOR A STRANGER' : 'A STRANGER JUST MOVED IT'}</p><h2>Someone else<br /><em>has your spark.</em></h2><p className="waiting-copy">Keep this open. Every change appears here as another person enters the relay.</p>
-            <div className="live-relay glass-panel"><div className="live-relay-head"><span>LIVE TRACE</span><span>{currentCount} / 3 MOVES</span></div><div className="relay-stream"><div className="stream-item seed-item"><span className="stream-dot" /><div><small>YOU · STARTED</small><p>{relay.seed}</p></div></div>{steps.map((step,index)=><div className="stream-item reveal-item" key={`${index}-${step.at}`}><span className="stream-dot" /><div><small>STRANGER {index + 1} · JUST MOVED</small><p>{step.output}</p></div></div>)}{currentCount < 3 && <div className="stream-item ghost-item"><span className="stream-dot waiting-dot" /><div><small>NEXT STRANGER</small><p>Waiting for a human to continue this.</p></div></div>}</div></div>
+          <div><p className="kicker"><span className="pulse-ring" /> {currentCount === 0 ? 'WAITING FOR A STRANGER' : 'A STRANGER JUST MOVED IT'}</p><h2>{role === 'creator' ? <>Someone else<br /><em>has your spark.</em></> : <>You just moved<br /><em>someone's spark.</em></>}</h2><p className="waiting-copy">{currentCount === 0 ? 'Keep this open. A stranger can pick it up from the live Pulse pool.' : 'Your move is now part of the relay. The next stranger can continue it.'}</p>
+            <div className="live-relay glass-panel"><div className="live-relay-head"><span>LIVE TRACE</span><span>{currentCount} / 3 MOVES</span></div><div className="relay-stream"><div className="stream-item seed-item"><span className="stream-dot" /><div><small>STARTER</small><p>{relay.seed}</p></div></div>{steps.map((step,index)=><div className="stream-item reveal-item" key={`${index}-${step.at}`}><span className="stream-dot" /><div><small>STRANGER {index + 1}</small><p>{step.output}</p></div></div>)}{currentCount < 3 && <div className="stream-item ghost-item"><span className="stream-dot waiting-dot" /><div><small>NEXT STRANGER</small><p>Waiting for a human to continue this.</p></div></div>}</div></div>
             <div className="relay-id-box"><span>PULSE ID</span><strong>{String(relay.id).slice(0, 8).toUpperCase()}</strong><button onClick={copyId}>{copied ? <Check size={15} /> : <Copy size={15} />}</button></div>
           </div>
           <div className="waiting-orbit"><div className="orbit-sweep" /><div className="orbit-core"><span>{String(currentCount).padStart(2,'0')}</span><small>/ 03</small></div>{[0,1,2].map(i=><span key={i} className={`orbit-node node-${i} ${i < currentCount ? 'done' : ''}`} />)}</div>
@@ -134,9 +149,8 @@ export default function Page() {
         </div>
       </section>}
 
-      {screen === 'result' && relay && <section className="screen result-screen"><div className="grid-label">04 — RESULT</div><div className="result-top"><div><p className="kicker">THE RELAY RETURNED</p><h2>Look what<br /><em>happened.</em></h2></div><div className="result-stamp"><span>03</span><small>HUMANS</small></div></div><div className="timeline-final"><div className="final-seed"><span>00 · YOU</span><p>{relay.seed}</p></div>{steps.map((step,index)=><div className="final-step" key={`${index}-${step.at}`}><span>{String(index+1).padStart(2,'0')} · STRANGER</span><p>{step.output}</p></div>)}</div><div className="result-actions"><button className="black-button" onClick={reset}><Sparkles size={17} /> START ANOTHER <ArrowRight size={17} /></button><button className="outline-button" onClick={copyId}>{copied ? <Check size={17}/> : <Copy size={17}/>} COPY PULSE ID</button></div></section>}
-
-      <footer className="pulse-footer"><span>01 / START</span><span>HUMAN RELAY</span><span>0.3</span></footer>
+      {screen === 'result' && relay && <section className="screen result-screen"><div className="grid-label">04 — RESULT</div><div className="result-top"><div><p className="kicker">THE RELAY RETURNED</p><h2>Look what<br /><em>happened.</em></h2></div><div className="result-stamp"><span>03</span><small>HUMANS</small></div></div><div className="timeline-final"><div className="final-seed"><span>00 · START</span><p>{relay.seed}</p></div>{steps.map((step,index)=><div className="final-step" key={`${index}-${step.at}`}><span>{String(index+1).padStart(2,'0')} · STRANGER</span><p>{step.output}</p></div>)}</div><div className="result-actions"><button className="black-button" onClick={reset}><Sparkles size={17} /> START ANOTHER <ArrowRight size={17} /></button><button className="outline-button" onClick={copyId}>{copied ? <Check size={17}/> : <Copy size={17}/>} COPY PULSE ID</button></div></section>}
+      <footer className="pulse-footer"><span>01 / START</span><span>HUMAN RELAY</span><span>0.4</span></footer>
     </main>
   );
 }
