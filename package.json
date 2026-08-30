@@ -1,7 +1,7 @@
 {
   "name": "pulse",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "next dev",
@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "latest",
+    "@tailwindcss/postcss": "latest",
     "framer-motion": "latest",
+    "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest"
+    "tailwindcss": "latest"
   },
   "devDependencies": {}
 }
