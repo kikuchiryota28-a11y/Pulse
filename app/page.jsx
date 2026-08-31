@@ -48,7 +48,7 @@ function ObjectView({ payload, size = 210, interactive = false, onThrow }) {
     <motion.div
       drag={interactive}
       dragElastic={.18}
-      style={{ x, y, rotate: payload.rotation || 0 }}
+      style={{ x, y, rotate: payload.rotation || 0, width: size, height: size, background: base, clipPath: payload.shape === 'triangle' ? 'polygon(50% 0%,100% 100%,0% 100%)' : undefined, boxShadow: '0 30px 70px rgba(70,62,43,.22), inset 0 1px rgba(255,255,255,.32)' }}
       onDragStart={() => setDragging(true)}
       onDragEnd={(_, info) => { setDragging(false); if (interactive && (Math.abs(info.offset.x) > 110 || Math.abs(info.velocity.x) > 700)) onThrow?.(info.offset.x, info.offset.y); }}
       whileTap={interactive ? { scale: .94 } : undefined}
@@ -56,7 +56,6 @@ function ObjectView({ payload, size = 210, interactive = false, onThrow }) {
       className={`relative touch-none select-none ${interactive ? 'cursor-grab active:cursor-grabbing' : ''} ${shape}`}
       animate={{ scale: dragging ? 1.04 : 1 }}
       transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-      style={{ x, y, rotate: payload.rotation || 0, width: size, height: size, background: base, clipPath: payload.shape === 'triangle' ? 'polygon(50% 0%,100% 100%,0% 100%)' : undefined, boxShadow: '0 30px 70px rgba(70,62,43,.22), inset 0 1px rgba(255,255,255,.32)' }}
       aria-label="Pulse object"
     >
       <span className="absolute inset-[9%] rounded-full border border-white/20" />
@@ -81,7 +80,6 @@ export default function Page() {
 
   const artifact = artifactOf(relay);
   const count = relay?.step_count ?? stepsOf(relay).length;
-  const complete = relay?.status === 'complete' || count >= MAX_STEPS;
 
   useEffect(() => { setHistory(readHistory()); }, []);
 
@@ -145,7 +143,6 @@ export default function Page() {
           <motion.button onClick={() => setScreen('create')} whileTap={{ scale: .94 }} className="relative grid h-[220px] w-[220px] place-items-center rounded-full bg-[#667052] shadow-[0_35px_90px_rgba(70,62,43,.22)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#667052]">
             <span className="absolute inset-4 rounded-full border border-white/20" /><span className="h-3 w-3 rounded-full bg-[#f3efe5]" />
           </motion.button>
-          <div className="mt-10 text-[11px] uppercase tracking-[.28em] text-[#686b5b]">touch to begin</div>
         </motion.section>}
 
         {screen === 'create' && <motion.section key="create" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex h-full flex-col items-center justify-center px-6">
@@ -166,23 +163,18 @@ export default function Page() {
 
         {screen === 'waiting' && <motion.section key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex h-full flex-col items-center justify-center px-6 text-center">
           <motion.div animate={{ scale: [1, 1.035, 1] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}><ObjectView payload={artifact} size={190} /></motion.div>
-          <div className="mt-12 text-[11px] uppercase tracking-[.26em] text-[#686b5b]">waiting for another hand</div>
-          {count > 0 && <div className="mt-3 text-xs text-[#686b5b]">{count} / {MAX_STEPS}</div>}
-          {role === 'creator' && <button onClick={claimPulse} disabled={busy} className="mt-8 text-xs uppercase tracking-[.18em] underline underline-offset-4 disabled:opacity-40">find a Pulse</button>}
+          {count > 0 && <div className="mt-7 text-xs text-[#686b5b]">{count} / {MAX_STEPS}</div>}
+          {role === 'creator' && <button onClick={claimPulse} disabled={busy} aria-label="Find a Pulse" className="mt-7 grid h-11 w-11 place-items-center rounded-full border border-[#24251f]/15 bg-[#f3efe5]/60 disabled:opacity-40"><ArrowUpRight size={16} /></button>}
         </motion.section>}
 
         {screen === 'turn' && <motion.section key="turn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex h-full flex-col items-center justify-center px-6">
-          <div className="flex h-[430px] w-full items-center justify-center">
-            <ObjectView payload={artifact} interactive onThrow={passPulse} size={210} />
-          </div>
-          <div className="text-[11px] uppercase tracking-[.26em] text-[#686b5b]">pull · change · let go</div>
-          <div className="mt-3 flex items-center gap-2 text-xs text-[#686b5b]"><span>{count + 1}</span><span>/</span><span>{MAX_STEPS}</span></div>
+          <div className="flex h-[430px] w-full items-center justify-center"><ObjectView payload={artifact} interactive onThrow={passPulse} size={210} /></div>
+          <div className="mt-3 text-xs text-[#686b5b]">{count + 1} / {MAX_STEPS}</div>
         </motion.section>}
 
         {screen === 'result' && <motion.section key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex h-full flex-col items-center justify-center px-6 text-center">
           <ObjectView payload={artifact} size={240} />
-          <div className="mt-12 text-[11px] uppercase tracking-[.26em] text-[#686b5b]">what came back</div>
-          <button onClick={reset} className="mt-8 grid h-12 w-12 place-items-center rounded-full border border-[#24251f]/15 bg-[#f3efe5]/60" aria-label="Again"><RotateCcw size={16} /></button>
+          <button onClick={reset} className="mt-10 grid h-12 w-12 place-items-center rounded-full border border-[#24251f]/15 bg-[#f3efe5]/60" aria-label="Again"><RotateCcw size={16} /></button>
         </motion.section>}
       </AnimatePresence>
 
