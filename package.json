@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:next": "next dev",
-    "build": "opennextjs-cloudflare build",
-    "build:next": "next build",
+    "build": "next build",
+    "build:cloudflare": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "start": "next start"
