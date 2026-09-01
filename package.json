@@ -1,7 +1,7 @@
 {
   "name": "pulse",
   "private": true,
-  "version": "0.3.3",
+  "version": "0.3.4",
   "type": "module",
   "engines": {
     "node": ">=20.9.0"
@@ -13,7 +13,8 @@
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --test \"lib/*.test.js\""
   },
   "dependencies": {
     "@opennextjs/cloudflare": "1.20.4",
