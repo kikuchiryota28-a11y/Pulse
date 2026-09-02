@@ -1,10 +1,10 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Camera, Check, History, RotateCcw, Search, Send, Sparkles, Target, X, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Check, History, Search, Send, Target, X, Zap, GitCompare, MessageCircleQuestion } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { ACTIONS, MAX_STEPS, PEOPLE_PER_PULSE, START_TASK, generateNextTask, latestPayload, parsePayload, serializeStep, starterPayload } from '../lib/pulse-v2';
+import { ACTIONS, MAX_STEPS, START_TASK, generateNextTask, latestPayload, parsePayload, serializeStep, starterPayload } from '../lib/pulse-v2';
 
 const HISTORY_KEY = 'pulse:v3:pulses';
 const SESSION_KEY = 'pulse:v3:sessions';
@@ -17,7 +17,13 @@ function saveSession(id, value) { const all = readSessions(); all[id] = value; l
 function saveHistory(entry) { const next = [entry, ...readHistory().filter((item) => item.id !== entry.id)].slice(0, 30); localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); }
 function payloadsOf(relay) { return stepsOf(relay).map((step) => parsePayload(step?.output)).filter(Boolean); }
 function taskForRelay(relay) { return latestPayload(relay)?.task || START_TASK; }
-function actionIcon(action) { if (action === ACTIONS.CHOOSE) return Target; if (action === ACTIONS.FIND || action === ACTIONS.COMPARE || action === ACTIONS.CHALLENGE) return Search; if (action === ACTIONS.CAPTURE) return Camera; return Zap; }
+function actionIcon(action) {
+  if (action === ACTIONS.CHOOSE) return Target;
+  if (action === ACTIONS.FIND || action === ACTIONS.CAPTURE) return Camera;
+  if (action === ACTIONS.COMPARE) return GitCompare;
+  if (action === ACTIONS.CHALLENGE) return MessageCircleQuestion;
+  return Zap;
+}
 
 async function imageFileToDataUrl(file, maxSide = 960, quality = 0.68) {
   if (!file?.type?.startsWith('image/')) throw new Error('画像を選んでください。');
@@ -33,19 +39,26 @@ async function imageFileToDataUrl(file, maxSide = 960, quality = 0.68) {
   return canvas.toDataURL('image/jpeg', quality);
 }
 
-function PhotoFrame({ dataUrl, marker, onMark }) {
-  return <div className={`relative aspect-[4/3] overflow-hidden rounded-[30px] bg-[#d6cdbb] ${onMark ? 'cursor-crosshair' : ''}`} onClick={(event) => {
+function PhotoFrame({ dataUrl, marker, onMark, compact = false }) {
+  if (!dataUrl) return <div className={`grid aspect-[4/3] place-items-center rounded-[26px] border border-dashed border-[#24251f]/15 bg-[#f3efe5]/45 text-sm text-[#686b5b] ${compact ? 'min-h-28' : ''}`}>画像がここに表示されます</div>;
+  return <div className={`relative aspect-[4/3] overflow-hidden rounded-[26px] bg-[#d6cdbb] ${onMark ? 'cursor-crosshair' : ''}`} onClick={(event) => {
     if (!onMark) return;
     const rect = event.currentTarget.getBoundingClientRect();
     onMark({ x: ((event.clientX - rect.left) / rect.width) * 100, y: ((event.clientY - rect.top) / rect.height) * 100 });
   }}>
-    {dataUrl ? <img src={dataUrl} alt="Pulse" className="block h-full w-full object-cover" /> : null}
-    {marker ? <motion.div initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#f8f4eb] bg-[#f8f4eb]/10 shadow-[0_0_0_5px_rgba(36,37,31,.26)]" style={{ left: `${marker.x}%`, top: `${marker.y}%` }} /> : null}
+    <img src={dataUrl} alt="Pulse" className="block h-full w-full object-cover" />
+    {marker ? <motion.div initial={{ scale: .3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#f8f4eb] bg-[#f8f4eb]/10 shadow-[0_0_0_5px_rgba(36,37,31,.26)]" style={{ left: `${marker.x}%`, top: `${marker.y}%` }} /> : null}
   </div>;
 }
 
 function PrimaryButton({ children, onClick, disabled, icon: Icon = ArrowRight }) {
   return <button disabled={disabled} onClick={onClick} className="inline-flex items-center justify-center gap-3 rounded-full bg-[#24251f] px-6 py-3 text-sm font-semibold text-[#f3efe5] transition-transform hover:-translate-y-0.5 active:scale-[.98] disabled:pointer-events-none disabled:opacity-35">{children}<Icon size={17} /></button>;
+}
+
+function StepPill({ action }) {
+  const Icon = actionIcon(action);
+  const label = ({ CAPTURE: '撮る', FIND: '探す', CHOOSE: '選ぶ', INTERPRET: '解釈する', COMPARE: '比べる', CHALLENGE: '疑う', PREDICT: '予測する' })[action] || action;
+  return <div className="inline-flex items-center gap-2 rounded-full border border-[#24251f]/12 bg-[#f3efe5]/72 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[.15em]"><Icon size={13} /> {label}</div>;
 }
 
 export default function Page() {
@@ -61,13 +74,16 @@ export default function Page() {
   const [photo, setPhoto] = useState('');
   const [marker, setMarker] = useState(null);
   const [text, setText] = useState('');
+  const [compareNote, setCompareNote] = useState('');
+  const [claim, setClaim] = useState('');
+  const [challengeEvidence, setChallengeEvidence] = useState('');
   const creatorInputRef = useRef(null);
 
   const payload = useMemo(() => latestPayload(relay), [relay]);
   const task = useMemo(() => taskForRelay(relay), [relay]);
   const count = relay?.step_count ?? stepsOf(relay).length;
-  const finalPhoto = payload?.artifact?.dataUrl;
   const revealSteps = useMemo(() => payloadsOf(relay), [relay]);
+  const currentArtifact = payload?.artifact?.dataUrl || payload?.result?.dataUrl;
 
   useEffect(() => { setHistory(readHistory()); }, []);
 
@@ -82,7 +98,7 @@ export default function Page() {
     return () => { supabase.removeChannel(channel); };
   }, [relay?.id, role]);
 
-  function reset() { setScreen('home'); setRelay(null); setRole(''); setToken(''); setCreatorPhoto(''); setPhoto(''); setMarker(null); setText(''); setError(''); setShowHistory(false); }
+  function reset() { setScreen('home'); setRelay(null); setRole(''); setToken(''); setCreatorPhoto(''); setPhoto(''); setMarker(null); setText(''); setCompareNote(''); setClaim(''); setChallengeEvidence(''); setError(''); setShowHistory(false); }
   function openCreate() { setCreatorPhoto(''); setError(''); setScreen('create'); }
 
   async function onPhotoPicked(event, setter) {
@@ -101,8 +117,7 @@ export default function Page() {
       const { data, error: dbError } = await supabase.rpc('create_relay', { p_seed: JSON.stringify(starterPayload(creatorPhoto)) });
       if (dbError) throw dbError;
       if (!data?.id) throw new Error('Pulseを作れませんでした。');
-      setRelay(data); setRole('creator'); setToken('');
-      saveSession(data.id, { role: 'creator', token: '' });
+      setRelay(data); setRole('creator'); setToken(''); saveSession(data.id, { role: 'creator', token: '' });
       saveHistory({ id: data.id, role: 'creator', status: data.status, stepCount: data.step_count ?? 0, updatedAt: Date.now() });
       setHistory(readHistory()); setScreen('waiting');
     } catch (err) { setError(err?.message || 'Pulseを作れませんでした。'); }
@@ -115,29 +130,42 @@ export default function Page() {
       const { data, error: dbError } = await supabase.rpc('claim_relay');
       if (dbError) throw dbError;
       if (!data?.relay) { setError('今は待っているPulseがありません。'); return; }
-      setRelay(data.relay); setRole('stranger'); setToken(data.token); setPhoto(''); setMarker(null); setText('');
-      saveSession(data.relay.id, { role: 'stranger', token: data.token });
-      saveHistory({ id: data.relay.id, role: 'stranger', status: data.relay.status, stepCount: data.relay.step_count ?? 0, updatedAt: Date.now() });
-      setHistory(readHistory()); setScreen('task');
+      setRelay(data.relay); setRole('stranger'); setToken(data.token); setPhoto(''); setMarker(null); setText(''); setCompareNote(''); setClaim(''); setChallengeEvidence(''); setScreen('task');
+      saveSession(data.relay.id, { role: 'stranger', token: data.token }); saveHistory({ id: data.relay.id, role: 'stranger', status: data.relay.status, stepCount: data.relay.step_count ?? 0, updatedAt: Date.now() }); setHistory(readHistory());
     } catch (err) { setError(err?.message || 'Pulseを見つけられませんでした。'); }
     finally { setBusy(false); }
   }
 
   async function submitStep() {
     if (!relay || !token || busy) return;
-    let action = task?.actionType;
-    let result;
-    let nextArtifact;
+    const action = task?.actionType;
+    const inputType = task?.inputType;
+    let result = {};
+    let nextArtifact = payload?.artifact || null;
 
-    if (task?.inputType === 'tap') {
+    if (inputType === 'tap') {
       if (!marker) { setError('写真の中から1か所をタップしてください。'); return; }
       result = { marker, summary: '写真の中の1点を選択した' };
-      nextArtifact = { ...payload?.artifact, marker };
-    } else if (task?.inputType === 'text') {
+      nextArtifact = { ...nextArtifact, marker };
+    } else if (inputType === 'text') {
       const clean = text.trim().replace(/\s+/g, ' ');
-      if (!clean || clean.length > (task.maxLength || 90)) { setError('短い一文で入力してください。'); return; }
+      if (!clean || clean.length > (task.maxLength || 120)) { setError('短い一文で入力してください。'); return; }
       result = { text: clean, summary: clean };
-      nextArtifact = { ...payload?.artifact, text: clean };
+      nextArtifact = { ...nextArtifact, text: clean };
+    } else if (inputType === 'compare') {
+      const note = compareNote.trim().replace(/\s+/g, ' ');
+      if (!photo) { setError('比較するための新しい写真を1枚追加してください。'); return; }
+      if (!note || note.length > 120) { setError('違いを一文で書いてください。'); return; }
+      result = { dataUrl: photo, note, summary: note };
+      nextArtifact = { type: 'compare', previousDataUrl: currentArtifact || null, dataUrl: photo, note };
+    } else if (inputType === 'challenge') {
+      const cleanClaim = claim.trim().replace(/\s+/g, ' ');
+      const cleanEvidence = challengeEvidence.trim().replace(/\s+/g, ' ');
+      if (!cleanClaim || cleanClaim.length > 120) { setError('疑っている主張を一文で書いてください。'); return; }
+      if (!photo) { setError('反証になりそうなものを1枚撮ってください。'); return; }
+      if (!cleanEvidence || cleanEvidence.length > 120) { setError('なぜ反証になるのか一文で書いてください。'); return; }
+      result = { claim: cleanClaim, dataUrl: photo, evidence: cleanEvidence, summary: cleanEvidence };
+      nextArtifact = { type: 'challenge', dataUrl: photo, claim: cleanClaim, evidence: cleanEvidence };
     } else {
       if (!photo) { setError('写真を1枚追加してください。'); return; }
       result = { dataUrl: photo, summary: '新しい写真を1枚残した' };
@@ -154,10 +182,8 @@ export default function Page() {
     try {
       const { data, error: dbError } = await supabase.rpc('submit_relay_step', { p_relay_id: relay.id, p_token: token, p_output: output });
       if (dbError) throw dbError;
-      setRelay(data); setToken(''); saveSession(relay.id, { role, token: '' });
-      saveHistory({ id: data.id, role, status: data.status, stepCount: data.step_count ?? stepsOf(data).length, updatedAt: Date.now() });
-      setHistory(readHistory()); setPhoto(''); setMarker(null); setText('');
-      setScreen(data.status === 'complete' || !nextTask ? 'result' : 'waiting');
+      setRelay(data); setToken(''); saveSession(relay.id, { role, token: '' }); saveHistory({ id: data.id, role, status: data.status, stepCount: data.step_count ?? stepsOf(data).length, updatedAt: Date.now() }); setHistory(readHistory());
+      setPhoto(''); setMarker(null); setText(''); setCompareNote(''); setClaim(''); setChallengeEvidence(''); setScreen(data.status === 'complete' || !nextTask ? 'result' : 'waiting');
     } catch (err) { setError(err?.message || 'Pulseを次へ渡せませんでした。'); }
     finally { setBusy(false); }
   }
@@ -174,30 +200,25 @@ export default function Page() {
     finally { setBusy(false); }
   }
 
-  return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#e8e1d2] text-[#24251f]">
-      <div className="pulse-grid" />
-      <div className="pulse-grain" />
-      <header className="absolute inset-x-0 top-0 z-50 flex items-center justify-between px-5 py-5 sm:px-9"><button onClick={reset} className="text-sm font-black tracking-[.28em]">PULSE</button><button onClick={() => setShowHistory(true)} aria-label="履歴" className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/12 bg-[#f3efe5]/75"><History size={17} strokeWidth={1.7} /></button></header>
+  function renderInput() {
+    const type = task?.inputType;
+    if (type === 'tap') return <div className="space-y-4"><PhotoFrame dataUrl={currentArtifact} marker={marker} onMark={setMarker} /><p className="text-sm text-[#686b5b]">写真の上をタップ。選んだ場所が次の流れに残ります。</p></div>;
+    if (type === 'text') return <div className="space-y-4"><div className="rounded-[26px] border border-[#24251f]/12 bg-[#f3efe5]/70 p-5"><div className="mb-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-[.18em] text-[#686b5b]"><span>your interpretation</span><span>{text.length}/120</span></div><textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={120} rows={5} placeholder={task.actionType === ACTIONS.PREDICT ? '次の人はきっと…' : '僕はこう考える…'} className="w-full resize-none bg-transparent text-lg leading-7 outline-none placeholder:text-[#686b5b]/50" /></div></div>;
+    if (type === 'compare') return <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2"><div><p className="mb-2 text-[11px] font-bold uppercase tracking-[.18em] text-[#686b5b]">previous</p><PhotoFrame dataUrl={currentArtifact} compact /></div><div><p className="mb-2 text-[11px] font-bold uppercase tracking-[.18em] text-[#686b5b]">your find</p><label className="grid aspect-[4/3] cursor-pointer place-items-center overflow-hidden rounded-[26px] border border-dashed border-[#24251f]/15 bg-[#f3efe5]/50">{photo ? <img src={photo} alt="比較対象" className="h-full w-full object-cover" /> : <div className="text-center text-sm text-[#686b5b]"><Camera className="mx-auto mb-2" size={22} />撮る / 選ぶ</div>}<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onPhotoPicked(e, setPhoto)} /></label></div></div><input value={compareNote} onChange={(e) => setCompareNote(e.target.value)} maxLength={120} placeholder="何が違う？ 一文で。" className="w-full rounded-full border border-[#24251f]/12 bg-[#f3efe5]/70 px-5 py-3 text-sm outline-none" /></div>;
+    if (type === 'challenge') return <div className="space-y-4"><div className="rounded-[26px] border border-[#24251f]/12 bg-[#f3efe5]/70 p-5"><p className="mb-2 text-[11px] font-bold uppercase tracking-[.18em] text-[#686b5b]">the claim</p><input value={claim} onChange={(e) => setClaim(e.target.value)} maxLength={120} placeholder="前の人は何を言っている？" className="w-full bg-transparent text-base outline-none placeholder:text-[#686b5b]/50" /></div><label className="grid aspect-[16/9] cursor-pointer place-items-center overflow-hidden rounded-[26px] border border-dashed border-[#24251f]/15 bg-[#f3efe5]/50">{photo ? <img src={photo} alt="反証" className="h-full w-full object-cover" /> : <div className="text-center text-sm text-[#686b5b]"><Camera className="mx-auto mb-2" size={22} />反証になりそうなものを撮る</div>}<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onPhotoPicked(e, setPhoto)} /></label><input value={challengeEvidence} onChange={(e) => setChallengeEvidence(e.target.value)} maxLength={120} placeholder="なぜ反証になる？ 一文で。" className="w-full rounded-full border border-[#24251f]/12 bg-[#f3efe5]/70 px-5 py-3 text-sm outline-none" /></div>;
+    return <div className="space-y-4"><label className="grid aspect-[4/3] cursor-pointer place-items-center overflow-hidden rounded-[26px] border border-dashed border-[#24251f]/15 bg-[#f3efe5]/50">{photo ? <img src={photo} alt="新しい写真" className="h-full w-full object-cover" /> : <div className="text-center text-sm text-[#686b5b]"><Camera className="mx-auto mb-2" size={25} />撮る / 選ぶ</div>}<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onPhotoPicked(e, setPhoto)} /></label></div>;
+  }
 
-      <AnimatePresence mode="wait">
-        {screen === 'home' && <motion.section key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative z-10 flex min-h-dvh items-center px-5 py-28 sm:px-10"><div className="mx-auto w-full max-w-6xl"><div className="grid gap-12 lg:grid-cols-[1.1fr_.9fr] lg:items-end"><div><p className="mb-5 text-[11px] font-black uppercase tracking-[.3em] text-[#686b5b]">one task. one human. then another.</p><h1 className="max-w-5xl text-balance text-[clamp(3.2rem,9vw,8rem)] font-semibold leading-[.84] tracking-[-.07em]">The world<br />changes hands.</h1><p className="mt-7 max-w-xl text-base leading-7 text-[#686b5b]">One person makes a move. A stranger inherits it, changes what happens next, and passes the change on.</p></div><div className="grid gap-3 sm:grid-cols-2 lg:pb-2"><button onClick={openCreate} className="group min-h-48 rounded-[30px] bg-[#667052] p-6 text-left text-[#f3efe5] transition-transform hover:-translate-y-1 active:scale-[.99]"><div className="flex items-start justify-between"><Camera size={22} /><ArrowRight className="transition-transform group-hover:translate-x-1" size={20} /></div><div className="mt-20 text-xl font-semibold tracking-[-.03em]">Start a Pulse</div><div className="mt-1 text-sm text-[#f3efe5]/65">Give a stranger the first move.</div></button><button onClick={claimPulse} disabled={busy} className="group min-h-48 rounded-[30px] border border-[#24251f]/12 bg-[#f3efe5]/78 p-6 text-left transition-transform hover:-translate-y-1 active:scale-[.99] disabled:opacity-40"><div className="flex items-start justify-between"><Target size={22} /><ArrowRight className="transition-transform group-hover:translate-x-1" size={20} /></div><div className="mt-20 text-xl font-semibold tracking-[-.03em]">Find a Pulse</div><div className="mt-1 text-sm text-[#686b5b]">Pick up where someone left off.</div></button></div></div></div></motion.section>}
-
-        {screen === 'create' && <motion.section key="create" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="relative z-10 flex min-h-dvh items-center justify-center px-5 py-28 sm:px-9"><div className="grid w-full max-w-5xl gap-10 lg:grid-cols-[.85fr_1.15fr] lg:items-center"><div><button onClick={reset} className="mb-8 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[.2em] text-[#686b5b]"><ArrowLeft size={14} /> Back</button><p className="text-[11px] font-black uppercase tracking-[.3em] text-[#686b5b]">start</p><h1 className="mt-3 text-5xl font-semibold tracking-[-.05em] sm:text-6xl">Make the<br />first move.</h1><p className="mt-5 max-w-md text-sm leading-6 text-[#686b5b]">Take one ordinary photo. A stranger decides what happens next.</p><input ref={creatorInputRef} className="hidden" type="file" accept="image/*" capture="environment" onChange={(event) => onPhotoPicked(event, setCreatorPhoto)} /><div className="mt-8"><PrimaryButton onClick={() => creatorInputRef.current?.click()} disabled={busy} icon={Camera}>{creatorPhoto ? 'Change photo' : 'Take first photo'}</PrimaryButton></div>{error ? <p className="mt-4 text-sm text-[#ad735c]">{error}</p> : null}</div><div className="pulse-paper overflow-hidden rounded-[32px] p-3 sm:p-4">{creatorPhoto ? <PhotoFrame dataUrl={creatorPhoto} /> : <button onClick={() => creatorInputRef.current?.click()} className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-[24px] bg-[#ded6c4] text-[#686b5b]"><Camera size={34} strokeWidth={1.4} /><span className="mt-4 text-sm">Tap to add a photo</span></button>}<div className="flex items-center justify-between px-2 pb-1 pt-4"><span className="text-xs text-[#686b5b]">1 / {PEOPLE_PER_PULSE}</span>{creatorPhoto ? <PrimaryButton onClick={createPulse} disabled={busy}>Release it</PrimaryButton> : null}</div></div></div></motion.section>}
-
-        {screen === 'task' && <motion.section key="task" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="relative z-10 min-h-dvh px-5 pb-16 pt-28 sm:px-9"><div className="mx-auto w-full max-w-5xl"><div className="mb-8 flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-[.25em] text-[#686b5b]">your move · {Math.min(count + 2, PEOPLE_PER_PULSE)} / {PEOPLE_PER_PULSE}</p><div className="mt-2 flex items-center gap-2 text-xs text-[#686b5b]"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#667052] text-[#f3efe5]"><Zap size={13} /></span><span>{task?.actionLabel || 'your action'}</span></div></div><button onClick={reset} className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/12 bg-[#f3efe5]/72"><X size={16} /></button></div><div className="grid gap-8 lg:grid-cols-[1.05fr_.95fr] lg:items-start"><div><div className="max-w-2xl"><h1 className="text-balance text-[clamp(2.4rem,6vw,5.2rem)] font-semibold leading-[.9] tracking-[-.06em]">{task?.title}</h1><p className="mt-5 max-w-xl text-base leading-7 text-[#686b5b]">{task?.prompt}</p><p className="mt-3 text-sm text-[#8b8674]">{task?.hint}</p></div><div className="mt-8">{task?.inputType === 'tap' && previousPhoto ? <PhotoFrame dataUrl={previousPhoto} marker={marker || payload?.artifact?.marker} onMark={setMarker} /> : null}{task?.inputType === 'photo' ? <PhotoInput photo={photo} onChange={(event) => onPhotoPicked(event, setPhoto)} /> : null}{task?.inputType === 'text' ? <div className="pulse-paper rounded-[28px] p-4"><textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={task.maxLength || 90} placeholder="一文だけ残す…" className="min-h-48 w-full resize-none bg-transparent p-3 text-xl leading-8 outline-none placeholder:text-[#9b9687]" /><div className="flex items-center justify-between border-t border-[#24251f]/10 px-3 pt-3 text-xs text-[#8b8674]"><span>{text.length} / {task.maxLength || 90}</span><span>短く、具体的に。</span></div></div> : null}</div>{error ? <p className="mt-4 text-sm text-[#ad735c]">{error}</p> : null}<div className="mt-6"><PrimaryButton onClick={submitStep} disabled={busy} icon={Send}>Pass it on</PrimaryButton></div></div><aside className="pulse-paper rounded-[28px] p-5 lg:sticky lg:top-24"><div className="text-[10px] font-black uppercase tracking-[.25em] text-[#686b5b]">the rule</div><p className="mt-3 text-lg font-semibold leading-snug">前の人の一手が、あなたのTaskを決めています。</p><p className="mt-3 text-sm leading-6 text-[#686b5b]">あなたの結果は、そのまま次の人の入口になります。先の展開は見えません。</p><div className="mt-7 flex items-center gap-2">{Array.from({ length: PEOPLE_PER_PULSE }, (_, index) => <span key={index} className={`h-1.5 flex-1 rounded-full ${index <= count ? 'bg-[#667052]' : 'bg-[#24251f]/10'}`} />)}</div></aside></div></div></motion.section>}
-
-        {screen === 'waiting' && <motion.section key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative z-10 flex min-h-dvh items-center justify-center px-5 py-28 text-center"><div className="max-w-xl">{finalPhoto ? <PhotoFrame dataUrl={finalPhoto} marker={payload?.artifact?.marker} /> : null}<div className="mx-auto mt-8"><p className="text-[10px] font-black uppercase tracking-[.3em] text-[#686b5b]">pulse in motion</p><h1 className="mt-3 text-5xl font-semibold tracking-[-.05em] sm:text-6xl">Someone else<br />has the move.</h1><p className="mx-auto mt-5 max-w-md text-sm leading-6 text-[#686b5b]">The next person will see what you left behind, then decide what happens next.</p><div className="mx-auto mt-9 flex max-w-xs items-center justify-center gap-2">{Array.from({ length: PEOPLE_PER_PULSE }, (_, index) => <span key={index} className={`h-2.5 w-2.5 rounded-full ${index < count + 1 ? 'bg-[#667052]' : 'bg-[#24251f]/12'}`} />)}</div><p className="mt-5 text-xs text-[#8b8674]">{count + 1} / {PEOPLE_PER_PULSE} people</p><button onClick={reset} className="mt-10 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[.2em] text-[#686b5b]"><RotateCcw size={14} /> Go home</button></div></div></motion.section>}
-
-        {screen === 'result' && <motion.section key="result" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="relative z-10 min-h-dvh px-5 pb-16 pt-28 sm:px-9"><div className="mx-auto w-full max-w-6xl"><div className="grid gap-10 lg:grid-cols-[.75fr_1.25fr] lg:items-start"><div><p className="text-[10px] font-black uppercase tracking-[.3em] text-[#686b5b]">pulse complete</p><h1 className="mt-3 text-[clamp(3.4rem,8vw,7rem)] font-semibold leading-[.84] tracking-[-.07em]">Look what<br />happened.</h1><p className="mt-6 max-w-md text-sm leading-6 text-[#686b5b]">{PEOPLE_PER_PULSE} people touched the same starting point. No one planned the final shape.</p><div className="mt-8"><PrimaryButton onClick={reset} icon={RotateCcw}>Run another</PrimaryButton></div></div><div><div className="pulse-paper overflow-hidden rounded-[32px] p-4"><div className="mb-4 flex items-center justify-between"><span className="text-[10px] font-black uppercase tracking-[.25em] text-[#686b5b]">what it became</span><span className="text-xs text-[#8b8674]">{Math.min(count + 1, PEOPLE_PER_PULSE)} / {PEOPLE_PER_PULSE}</span></div>{finalPhoto ? <PhotoFrame dataUrl={finalPhoto} marker={payload?.artifact?.marker} /> : null}</div><div className="mt-4 grid gap-3 sm:grid-cols-2">{revealSteps.map((item, index) => { const Icon = actionIcon(item.action); return <div key={`${item.step}-${index}`} className="pulse-paper rounded-[24px] p-4"><div className="flex items-center justify-between"><span className="grid h-8 w-8 place-items-center rounded-full bg-[#24251f] text-[#f3efe5]"><Icon size={14} /></span><span className="text-[10px] font-black uppercase tracking-[.2em] text-[#8b8674]">move {item.step ?? index + 1}</span></div><p className="mt-4 text-sm font-semibold">{item.result?.summary || item.result?.text || 'A human made a move.'}</p></div>; })}</div></div></div></div></motion.section>}
-      </AnimatePresence>
-
-      {showHistory ? <div className="fixed inset-0 z-[70] bg-[#24251f]/25 backdrop-blur-sm" onClick={() => setShowHistory(false)}><aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-[#f3efe5] p-6 sm:p-8" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-[.25em] text-[#686b5b]">archive</p><h2 className="mt-1 text-2xl font-semibold tracking-[-.04em]">Your Pulses</h2></div><button onClick={() => setShowHistory(false)} className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/12"><X size={16} /></button></div><div className="mt-7 flex-1 space-y-3 overflow-y-auto">{history.length ? history.map((entry) => <button key={entry.id} onClick={() => resume(entry)} className="flex w-full items-center justify-between gap-4 rounded-[22px] border border-[#24251f]/10 bg-white/35 p-4 text-left"><div><div className="text-sm font-semibold">{entry.status === 'complete' ? 'Complete' : entry.role === 'creator' ? 'Waiting' : 'In motion'}</div><div className="mt-1 text-xs text-[#686b5b]">{entry.stepCount || 0} handoff{entry.stepCount === 1 ? '' : 's'}</div></div><ArrowRight size={15} /></button>) : <div className="rounded-[22px] border border-dashed border-[#24251f]/15 p-5 text-sm leading-6 text-[#686b5b]">まだ履歴はありません。</div>}</div>{error ? <p className="mt-4 text-sm text-[#ad735c]">{error}</p> : null}</aside></div> : null}
-    </main>
-  );
-}
-
-function PhotoInput({ photo, onChange }) {
-  const inputRef = useRef(null);
-  return <div>{<input ref={inputRef} className="hidden" type="file" accept="image/*" capture="environment" onChange={onChange} />}{photo ? <PhotoFrame dataUrl={photo} /> : <button onClick={() => inputRef.current?.click()} className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-[30px] bg-[#ded6c4] text-[#686b5b]"><Camera size={36} strokeWidth={1.4} /><span className="mt-4 text-sm">Tap to add the photo</span></button>}</div>;
+  return <main className="relative min-h-dvh overflow-hidden bg-[#e8e1d2] text-[#24251f]"><div className="pulse-grid" /><div className="pulse-grain" />
+    <header className="absolute inset-x-0 top-0 z-50 flex items-center justify-between px-5 py-5 sm:px-9"><button onClick={reset} className="text-sm font-black tracking-[.28em]">PULSE</button><button onClick={() => setShowHistory(true)} aria-label="履歴" className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/12 bg-[#f3efe5]/75"><History size={17} strokeWidth={1.7} /></button></header>
+    <AnimatePresence mode="wait">
+      {screen === 'home' && <motion.section key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative z-10 flex min-h-dvh items-center px-5 py-28 sm:px-10"><div className="mx-auto w-full max-w-6xl"><div className="grid gap-12 lg:grid-cols-[1.1fr_.9fr] lg:items-end"><div><p className="mb-5 text-[11px] font-black uppercase tracking-[.3em] text-[#686b5b]">one task. one human. then another.</p><h1 className="max-w-5xl text-balance text-[clamp(3.2rem,9vw,8rem)] font-semibold leading-[.84] tracking-[-.07em]">The world<br />changes hands.</h1><p className="mt-7 max-w-xl text-base leading-7 text-[#686b5b]">One person makes a move. A stranger inherits it, changes what happens next, and passes the change on.</p></div><div className="grid gap-3 sm:grid-cols-2 lg:pb-2"><button onClick={openCreate} className="group min-h-48 rounded-[30px] bg-[#667052] p-6 text-left text-[#f3efe5] transition-transform hover:-translate-y-1 active:scale-[.99]"><div className="flex items-start justify-between"><Camera size={22} /><ArrowRight className="transition-transform group-hover:translate-x-1" size={20} /></div><div className="mt-20 text-xl font-semibold tracking-[-.03em]">Start a Pulse</div><div className="mt-1 text-sm text-[#f3efe5]/65">Give a stranger the first move.</div></button><button onClick={claimPulse} disabled={busy} className="group min-h-48 rounded-[30px] border border-[#24251f]/12 bg-[#f3efe5]/78 p-6 text-left transition-transform hover:-translate-y-1 active:scale-[.99] disabled:opacity-40"><div className="flex items-start justify-between"><Target size={22} /><ArrowRight className="transition-transform group-hover:translate-x-1" size={20} /></div><div className="mt-20 text-xl font-semibold tracking-[-.03em]">Find a Pulse</div><div className="mt-1 text-sm text-[#686b5b]">Pick up where someone left off.</div></button></div></div></div></motion.section>}
+      {screen === 'create' && <motion.section key="create" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="relative z-10 flex min-h-dvh items-center justify-center px-5 py-28 sm:px-9"><div className="grid w-full max-w-5xl gap-10 lg:grid-cols-[.85fr_1.15fr] lg:items-center"><div><button onClick={reset} className="mb-8 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[.2em] text-[#686b5b]"><ArrowLeft size={14} /> Back</button><p className="text-[11px] font-black uppercase tracking-[.3em] text-[#686b5b]">start</p><h1 className="mt-3 text-5xl font-semibold tracking-[-.05em]">Give it a<br />first move.</h1><p className="mt-5 max-w-md leading-7 text-[#686b5b]">You start the chain. After that, every stranger gets a different kind of action.</p></div><div className="rounded-[32px] bg-[#f3efe5]/72 p-3 shadow-[0_18px_60px_rgba(36,37,31,.08)]"><label className="grid aspect-[4/3] cursor-pointer place-items-center overflow-hidden rounded-[26px] bg-[#ddd4c3]">{creatorPhoto ? <img src={creatorPhoto} alt="最初の写真" className="h-full w-full object-cover" /> : <div className="text-center"><Camera className="mx-auto mb-3" size={28} /><p className="font-semibold">最初の写真を撮る</p><p className="mt-1 text-sm text-[#686b5b]">人や危険な場所は避けてください。</p></div>}<input ref={creatorInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onPhotoPicked(e, setCreatorPhoto)} /></label><div className="flex items-center justify-between gap-3 p-4"><StepPill action={ACTIONS.CAPTURE} /><PrimaryButton onClick={createPulse} disabled={!creatorPhoto || busy} icon={Send}>{busy ? 'Starting…' : 'Start Pulse'}</PrimaryButton></div></div></div></motion.section>}
+      {screen === 'task' && <motion.section key="task" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="relative z-10 min-h-dvh px-5 pb-20 pt-28 sm:px-9"><div className="mx-auto max-w-3xl"><div className="mb-8 flex items-end justify-between gap-4"><div><p className="text-[11px] font-black uppercase tracking-[.3em] text-[#686b5b]">your turn · {Math.min(count + 1, MAX_STEPS)} / {MAX_STEPS}</p><h1 className="mt-3 text-[clamp(2.5rem,7vw,5rem)] font-semibold leading-[.9] tracking-[-.06em]">{task?.title}</h1></div><StepPill action={task?.actionType} /></div><div className="rounded-[34px] border border-[#24251f]/10 bg-[#f3efe5]/55 p-4 sm:p-6"><div className="mb-7 rounded-[24px] bg-[#667052] p-6 text-[#f3efe5]"><p className="text-[11px] font-black uppercase tracking-[.22em] text-[#f3efe5]/55">THE TASK</p><p className="mt-3 text-xl leading-8 tracking-[-.02em]">{task?.prompt}</p><p className="mt-4 text-sm text-[#f3efe5]/65">{task?.hint}</p></div>{renderInput()}<div className="mt-6 flex items-center justify-between gap-4"><p className="max-w-xs text-xs leading-5 text-[#686b5b]">あなたの行動だけが、次のTaskを変えます。</p><PrimaryButton onClick={submitStep} disabled={busy} icon={ArrowRight}>{busy ? 'Passing…' : 'Pass it on'}</PrimaryButton></div></div></div></motion.section>}
+      {screen === 'waiting' && <motion.section key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative z-10 flex min-h-dvh items-center justify-center px-5 py-28"><div className="max-w-xl text-center"><div className="mx-auto mb-8 grid h-20 w-20 place-items-center rounded-full border border-[#24251f]/12 bg-[#f3efe5]/70"><span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#667052]" /></div><p className="text-[11px] font-black uppercase tracking-[.3em] text-[#686b5b]">pulse is moving</p><h1 className="mt-4 text-5xl font-semibold tracking-[-.06em]">Someone else<br />has the next move.</h1><p className="mt-5 leading-7 text-[#686b5b]">5 people will shape this chain. When the next action lands, it will be different because of what just happened.</p><div className="mt-8 flex justify-center"><PrimaryButton onClick={reset} icon={ArrowLeft}>Back home</PrimaryButton></div></div></motion.section>}
+      {screen === 'result' && <motion.section key="result" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="relative z-10 min-h-dvh px-5 pb-20 pt-28 sm:px-9"><div className="mx-auto max-w-5xl"><div className="max-w-3xl"><p className="text-[11px] font-black uppercase tracking-[.3em] text-[#686b5b]">REVEAL · {revealSteps.length + 1} actions</p><h1 className="mt-4 text-[clamp(3rem,8vw,7rem)] font-semibold leading-[.88] tracking-[-.07em]">5 strangers.<br />1 starting point.<br />Look what changed.</h1><p className="mt-7 max-w-xl text-base leading-7 text-[#686b5b]">The chain is finished. The interesting part was never the first photo — it was every decision that changed what came next.</p></div><div className="mt-12 grid gap-4 sm:grid-cols-2">{revealSteps.map((item, index) => <motion.div key={`${item.step}-${index}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .05 }} className="rounded-[28px] border border-[#24251f]/10 bg-[#f3efe5]/62 p-5"><div className="flex items-center justify-between"><span className="text-[11px] font-black uppercase tracking-[.2em] text-[#686b5b]">step {index + 1}</span><StepPill action={item.action} /></div><div className="mt-5">{item.artifact?.type === 'compare' ? <div className="grid grid-cols-2 gap-2"><PhotoFrame dataUrl={item.artifact.previousDataUrl} compact /><PhotoFrame dataUrl={item.artifact.dataUrl} compact /></div> : item.artifact?.dataUrl ? <PhotoFrame dataUrl={item.artifact.dataUrl} compact /> : null}</div><p className="mt-4 text-base leading-6">{item.result?.text || item.result?.note || item.result?.summary}</p></motion.div>)}</div><div className="mt-10"><PrimaryButton onClick={reset} icon={ArrowLeft}>Start another Pulse</PrimaryButton></div></div></motion.section>}
+    </AnimatePresence>
+    {error ? <div className="fixed inset-x-0 bottom-5 z-[70] flex justify-center px-5"><div className="rounded-full border border-[#ad735c]/20 bg-[#f3efe5] px-5 py-3 text-sm shadow-lg">{error}</div></div> : null}
+    <AnimatePresence>{showHistory ? <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[80] bg-[#24251f]/20 p-4 backdrop-blur-sm" onClick={() => setShowHistory(false)}><motion.div initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 18, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="mx-auto mt-14 max-w-lg rounded-[30px] bg-[#f3efe5] p-5 shadow-2xl"><div className="flex items-center justify-between"><div><p className="text-[11px] font-black uppercase tracking-[.2em] text-[#686b5b]">history</p><h2 className="mt-1 text-2xl font-semibold">Your Pulses</h2></div><button onClick={() => setShowHistory(false)} className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/12"><X size={16} /></button></div><div className="mt-5 space-y-2">{history.length ? history.map((entry) => <button key={entry.id} onClick={() => resume(entry)} className="flex w-full items-center justify-between rounded-2xl border border-[#24251f]/10 bg-white/30 p-4 text-left"><span><span className="block text-sm font-semibold">{entry.role === 'creator' ? 'You started it' : 'You joined it'}</span><span className="block text-xs text-[#686b5b]">{entry.status} · {entry.stepCount ?? 0} moves</span></span><ArrowRight size={16} /></button>) : <p className="py-8 text-center text-sm text-[#686b5b]">まだPulseはありません。</p>}</div></motion.div></motion.div> : null}</AnimatePresence>
+  </main>;
 }
