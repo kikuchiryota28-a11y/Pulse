@@ -1,0 +1,71 @@
+name: Repair text submission
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: "!contains(github.event.head_commit.message, '[text-fix]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch text submission and English UI copy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/page.jsx')
+          s = p.read_text()
+          s = s.replace("async function imageFileToDataUrl(file,maxSide=960,quality=.68)", "async function imageFileToDataUrl(file,maxSide=720,quality=.55)")
+          replacements = {
+            "画像を選んでください。":"Choose an image.",
+            "画像を読み込めませんでした。":"Could not read the image.",
+            "画像がここに表示されます":"Your image will appear here",
+            "撮る":"Capture", "探す":"Find", "選ぶ":"Choose", "別の見方":"New Angle", "比べる":"Compare", "疑う":"Challenge", "予測する":"Predict",
+            "写真の中から1か所をタップしてください。":"Tap one place in the image.",
+            "写真の上をタップ。選んだ場所が次の流れに残ります。":"Tap the image. Your choice becomes part of the chain.",
+            "短い一文で入力してください。":"Enter one short sentence.",
+            "一文で残す":"Leave one sentence",
+            "次に見つかりそうなものを一文で予測":"Predict what might appear next in one sentence",
+            "違いを一文で":"Describe the difference in one sentence",
+            "新しい写真を追加":"Add a new photo",
+            "疑っている主張を一文で":"State the claim you want to challenge in one sentence",
+            "反証になりそうなものを1枚撮ってください。":"Add a photo that could challenge the claim.",
+            "なぜ反証になるのか一文で書いてください。":"Explain in one sentence why it challenges the claim.",
+            "反証の写真を追加":"Add challenge photo",
+            "写真を1枚追加してください。":"Add one photo.",
+            "写真を追加":"Add photo",
+            "次へ渡す":"Pass it on", "渡しています…":"Passing it on…",
+            "今は参加できるPulseがありません。":"No Pulse is available right now.",
+            "Pulseを見つけられませんでした。":"Could not find a Pulse.",
+            "Pulseを次へ渡せませんでした。":"Could not pass the Pulse to the next person.",
+            "最初の写真を撮ってください。":"Add the first photo.",
+            "Pulseを作れませんでした。":"Could not create the Pulse.",
+            "最初の一手を作る":"Create the first move",
+            "参加する":"Join a Pulse", "最初の一枚。":"The first image.",
+            "戻る":"Back", "ホームへ":"Home", "ホームへ戻る":"Back home", "履歴":"History",
+            "まだ履歴はありません。":"No history yet.", "参加したPulse":"Joined Pulse", "自分が作ったPulse":"Created Pulse",
+            "次の人を待っています。":"Waiting for the next person.", "誰かが一手を残すと、このPulseが進みます。":"When someone leaves a move, this Pulse advances.",
+            "このPulseは、<br/>こう変わった。":"This Pulse<br/>changed like this.",
+            "最初の一手。":"Start the chain.",
+          }
+          for a,b in replacements.items(): s=s.replace(a,b)
+          # Make text submission explicit and defensive.
+          old = "const currentStep=count+1,previous={...payload,action,result,artifact:nextArtifact,task},actionHistory=[...payloadsOf(relay).map(x=>x.action).filter(Boolean),action],nextTask=currentStep>=MAX_STEPS?null:generateNextTask({previous,history:actionHistory,seed:relay.id,step:currentStep+1}),output=serializeStep({artifact:nextArtifact,action,result,step:currentStep,task,nextTask});"
+          new = "const currentStep=count+1,previous={...payload,action,result,artifact:nextArtifact,task},actionHistory=[...payloadsOf(relay).map(x=>x.action).filter(Boolean),action],nextTask=currentStep>=MAX_STEPS?null:generateNextTask({previous,history:actionHistory,seed:relay.id,step:currentStep+1}),output=serializeStep({artifact:nextArtifact,action,result,step:currentStep,task,nextTask});\n if(!output||typeof output!=='string'){setError('Could not prepare your response.');return}\n try{JSON.parse(output)}catch{setError('Could not prepare your response.');return}"
+          if old not in s:
+              raise SystemExit('submitStep anchor not found')
+          s=s.replace(old,new,1)
+          # Prevent browser form semantics from interfering with action buttons.
+          s=s.replace("function PrimaryButton({children,onClick,disabled,icon:Icon=ArrowRight}){return <button disabled=", "function PrimaryButton({children,onClick,disabled,icon:Icon=ArrowRight}){return <button type=\"button\" disabled=")
+          s=s.replace("<button onClick={submitStep} disabled={busy}>", "<button type=\"button\" onClick={submitStep} disabled={busy||!token}>")
+          p.write_text(s)
+          PY
+      - name: Commit repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.jsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix text submission and English UI [text-fix]'
+          git push
