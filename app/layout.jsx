@@ -1,9 +1,9 @@
-import "../src/pulse-ui.css";
+import "../src/pulse-social.css";
 import PulseMotion from "./PulseMotion";
 
 export const metadata = {
-  title: "Pulse — Human Relay",
-  description: "A small thing moves through strangers. Each person changes it once.",
+  title: "Pulse — Post. Let people change it.",
+  description: "A social network where people do not just react to posts — they change them.",
 };
 
 export default function RootLayout({ children }) {
