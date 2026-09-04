@@ -1,227 +1,367 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Camera, Check, Clock3, Compass, History, ImagePlus, Plus, RotateCcw, Share2, Sparkles, Target, Users, Zap } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowLeft, ArrowRight, Bell, Bookmark, Camera, Check, ChevronRight, Clock3, Compass,
+  Heart, ImagePlus, Menu, MoreHorizontal, Plus, RefreshCw, Search, Send, Share2, Sparkles,
+  User, Users, Wand2, X, Zap
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { ACTIONS, MAX_STEPS, START_TASK, generateNextTask, latestPayload, parsePayload, serializeStep, starterPayload } from '../lib/pulse-v2';
+import {
+  ACTION_CATALOG, ACTIONS, actorId, buildMoveContent, buildState, cleanText,
+  compactContent, contentFromMove, contentPreview, deriveTitle, directorFor, formatRelative,
+  initials, mediaFromContent, normalizeSeed, participantCount, scorePulse, seedFromPulse
+} from '../lib/pulse-social';
 
-const HISTORY_KEY = 'pulse:v5:history';
-const SESSION_KEY = 'pulse:v5:sessions';
-const DEVICE_KEY = 'pulse:v5:device';
+const ONBOARDING_KEY = 'pulse:social:onboarded';
+const DRAFT_KEY = 'pulse:social:draft';
 
-const readJSON = (key, fallback) => {
+function readLocal(key, fallback) {
   if (typeof window === 'undefined') return fallback;
-  try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); } catch { return fallback; }
-};
-const stepsOf = r => Array.isArray(r?.steps) ? r.steps : [];
-const payloadsOf = r => stepsOf(r).map(s => parsePayload(s?.output)).filter(Boolean);
-const imageOf = p => p?.artifact?.dataUrl || p?.result?.dataUrl || p?.state?.artifact?.dataUrl || null;
-const textOf = p => p?.artifact?.text || p?.result?.text || p?.result?.summary || p?.result?.note || p?.result?.evidence || p?.state?.summary || '';
-const deviceId = () => {
-  if (typeof window === 'undefined') return '';
-  let id = localStorage.getItem(DEVICE_KEY);
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem(DEVICE_KEY, id); }
-  return id;
-};
-const saveHistory = entry => {
-  const next = [entry, ...readJSON(HISTORY_KEY, []).filter(x => x.id !== entry.id)].slice(0, 50);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-  return next;
-};
-const saveSession = (id, value) => {
-  const next = readJSON(SESSION_KEY, {}); next[id] = value; localStorage.setItem(SESSION_KEY, JSON.stringify(next));
-};
+  try { return JSON.parse(window.localStorage.getItem(key) || JSON.stringify(fallback)); } catch { return fallback; }
+}
 
-async function imageFileToDataUrl(file, maxSide = 1000, quality = .68) {
-  if (!file?.type?.startsWith('image/')) throw Error('Choose an image.');
+async function imageFileToDataUrl(file, maxSide = 1200, quality = .72) {
+  if (!file?.type?.startsWith('image/')) throw new Error('Choose an image.');
   const source = await createImageBitmap(file);
   const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(source.width * scale));
   canvas.height = Math.max(1, Math.round(source.height * scale));
-  const ctx = canvas.getContext('2d'); ctx.drawImage(source, 0, 0, canvas.width, canvas.height); source.close();
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  source.close();
   return canvas.toDataURL('image/jpeg', quality);
 }
 
-const actionWords = {
-  [ACTIONS.OBSERVE]: 'OBSERVE', [ACTIONS.CHOOSE]: 'CHOOSE', [ACTIONS.FIND]: 'FIND', [ACTIONS.CONNECT]: 'CONNECT',
-  [ACTIONS.INTERPRET]: 'INTERPRET', [ACTIONS.COMPARE]: 'COMPARE', [ACTIONS.PREDICT]: 'PREDICT', [ACTIONS.CHALLENGE]: 'CHALLENGE', [ACTIONS.TRANSFORM]: 'TRANSFORM'
-};
+function IconButton({ children, label, onClick }) {
+  return <button className="icon-button" aria-label={label} onClick={onClick}>{children}</button>;
+}
 
-function Photo({ src, className = '', alt = 'Pulse' }) {
-  return src ? <img src={src} alt={alt} className={`h-full w-full object-cover ${className}`} /> : <div className={`grid h-full w-full place-items-center bg-[#e7e0d4] text-[#85867a] ${className}`}><ImagePlus size={28} /></div>;
+function PulseImage({ src, alt = 'Pulse', className = '' }) {
+  if (!src) return <div className={`media-placeholder ${className}`}><ImagePlus size={25} /></div>;
+  return <img src={src} alt={alt} className={className} loading="lazy" />;
 }
-function Button({ children, onClick, disabled = false, secondary = false, icon: Icon = ArrowRight, className = '' }) {
-  return <button disabled={disabled} onClick={onClick} className={`inline-flex min-h-12 items-center justify-center gap-2.5 rounded-full px-6 text-sm font-semibold transition active:scale-[.98] disabled:opacity-35 ${secondary ? 'border border-[#24251f]/12 bg-white/55 text-[#24251f] hover:bg-white' : 'bg-[#24251f] text-[#f8f3e9] hover:-translate-y-0.5'} ${className}`}>{children}<Icon size={17}/></button>;
+
+function Avatar({ actor = 'pulse', size = 'small' }) {
+  return <span className={`avatar avatar-${size}`} style={size === 'small' ? { width: 26, height: 26, borderRadius: 9, fontSize: 8 } : undefined}>{initials(actor)}</span>;
 }
-function Back({ onClick }) { return <button onClick={onClick} className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/10 bg-white/50"><ArrowLeft size={18}/></button>; }
+
 function BottomNav({ screen, go }) {
-  return <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#24251f]/8 bg-[#f7f2e8]/94 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-    <div className="mx-auto flex max-w-xl items-center justify-between">
-      <NavItem label="Pulses" active={screen === 'home'} onClick={() => go('home')} icon={Compass}/>
-      <button onClick={() => go('create')} aria-label="Create" className="grid h-12 w-12 place-items-center rounded-full bg-[#24251f] text-[#f7f2e8] shadow-lg"><Plus size={21}/></button>
-      <NavItem label="Activity" active={screen === 'history'} onClick={() => go('history')} icon={History}/>
-      <NavItem label="You" active={screen === 'you'} onClick={() => go('you')} icon={Users}/>
+  return <nav className="bottom-nav"><div className="bottom-nav-inner">
+    <button className={`nav-item ${screen === 'home' ? 'active' : ''}`} onClick={() => go('home')}><Compass size={19}/><span>Pulses</span></button>
+    <button className={`nav-item ${screen === 'activity' ? 'active' : ''}`} onClick={() => go('activity')}><Bell size={19}/><span>Activity</span></button>
+    <button className="nav-item" aria-label="Create" onClick={() => go('create')}><span className="nav-create"><Plus size={22}/></span><span>Create</span></button>
+    <button className={`nav-item ${screen === 'search' ? 'active' : ''}`} onClick={() => go('search')}><Search size={19}/><span>Explore</span></button>
+    <button className={`nav-item ${screen === 'you' ? 'active' : ''}`} onClick={() => go('you')}><User size={19}/><span>You</span></button>
+  </div></nav>;
+}
+
+function Header({ onSearch, onActivity }) {
+  return <header className="pulse-header">
+    <button className="pulse-wordmark" onClick={() => onSearch?.('home')}>pulse</button>
+    <div className="pulse-header-actions">
+      <IconButton label="Search" onClick={() => onSearch?.('search')}><Search size={18}/></IconButton>
+      <IconButton label="Activity" onClick={onActivity}><Bell size={18}/></IconButton>
     </div>
-  </nav>;
+  </header>;
 }
-function NavItem({ label, active, onClick, icon: Icon }) { return <button onClick={onClick} className={`flex min-w-14 flex-col items-center gap-1 text-[10px] font-semibold tracking-wide ${active ? 'text-[#24251f]' : 'text-[#85867a]'}`}><Icon size={18}/><span>{label}</span></button>; }
-function Progress({ count }) { return <div className="flex items-center gap-1.5">{Array.from({ length: MAX_STEPS + 1 }).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= count ? 'bg-[#24251f]' : 'bg-[#24251f]/10'}`} />)}</div>; }
-function StateCard({ payload, label = 'CURRENT STATE', compact = false }) {
-  const img = imageOf(payload); const txt = textOf(payload);
-  return <div className={`overflow-hidden rounded-[30px] border border-[#24251f]/8 bg-white/60 ${compact ? '' : 'shadow-[0_16px_60px_rgba(36,37,31,.06)]'}`}>
-    {img && <div className={`${compact ? 'aspect-[16/10]' : 'aspect-[4/3]'} overflow-hidden`}><Photo src={img}/></div>}
-    <div className="p-5"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">{label}</p>{txt && <p className="mt-2 text-base leading-6 text-[#24251f]">{txt}</p>}</div>
-  </div>;
+
+function PulseCard({ pulse, moves, actor, onOpen, onLike }) {
+  const seed = seedFromPulse(pulse);
+  const latest = moves.at(-1);
+  const media = mediaFromContent(latest?.content) || seed?.dataUrl;
+  const summary = latest ? contentPreview(latest.content, 105) : cleanText(seed?.text || pulse.intent || 'A new Pulse', 105);
+  const people = participantCount(moves);
+  const live = pulse.status === 'active';
+  return <motion.article className="pulse-card" layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: .995 }} onClick={() => onOpen(pulse.id)}>
+    <div className="pulse-card-media"><PulseImage src={media} alt={pulse.title}/></div>
+    <div className="pulse-card-body">
+      <div className="pulse-kicker"><span className="inline-flex items-center gap-2">{live && <i className="pulse-live-dot"/>}{live ? 'STILL MOVING' : 'COMPLETED'}</span><span>{formatRelative(pulse.updated_at)}</span></div>
+      <h2 className="pulse-card-title">{pulse.title}</h2>
+      <p className="pulse-card-copy">{summary}</p>
+      <div className="pulse-card-meta">
+        <div className="pulse-stats"><Users size={14}/><span>{people || 0} changed</span><Zap size={13}/><span>{moves.length} moves</span></div>
+        <div className="flex items-center gap-2"><button className="icon-button" style={{ width: 38, height: 38 }} aria-label="Like" onClick={(e) => { e.stopPropagation(); onLike?.(pulse.id); }}><Heart size={16}/></button><button className="pulse-join" onClick={(e) => { e.stopPropagation(); onOpen(pulse.id); }}>{live ? 'JOIN' : 'SEE TRACE'} <ArrowRight size={14}/></button></div>
+      </div>
+    </div>
+  </motion.article>;
 }
-function TraceCard({ payload, index, highlight = false }) {
-  if (!payload) return null;
-  const img = imageOf(payload); const summary = textOf(payload) || 'A move changed the state.';
-  return <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className={`relative overflow-hidden rounded-[26px] border ${highlight ? 'border-[#24251f] bg-[#24251f] text-[#f8f3e9]' : 'border-[#24251f]/8 bg-white/60'}`}>
-    {img && <div className="aspect-[16/10] overflow-hidden"><Photo src={img}/></div>}
-    <div className="p-4"><div className="flex items-center justify-between"><span className={`text-[10px] font-bold tracking-[.18em] ${highlight ? 'text-white/55' : 'text-[#85867a]'}`}>MOVE {index}</span>{highlight && <span className="text-[10px] font-bold tracking-[.16em]">YOU WERE HERE</span>}</div><p className="mt-2 text-sm leading-5">{summary}</p></div>
-  </motion.div>;
+
+function LoadingCards() {
+  return <div className="feed-stack">{[1,2,3].map((i) => <div key={i} className="pulse-card" style={{ minHeight: 410, background: 'rgba(255,255,255,.35)' }}><div style={{ height: 280, background: 'rgba(32,34,29,.035)' }}/><div className="pulse-card-body"><div style={{ width: 90, height: 8, borderRadius: 99, background: 'rgba(32,34,29,.08)' }}/><div style={{ width: '65%', height: 22, marginTop: 11, borderRadius: 8, background: 'rgba(32,34,29,.08)' }}/><div style={{ width: '100%', height: 12, marginTop: 9, borderRadius: 7, background: 'rgba(32,34,29,.06)' }}/></div></div>)}</div>;
+}
+
+function Home({ pulses, groupedMoves, actor, loading, filter, setFilter, onOpen, onLike, onCreate }) {
+  const filtered = useMemo(() => {
+    const list = [...pulses];
+    if (filter === 'moving') return list.filter((p) => p.status === 'active').sort((a,b) => scorePulse(b, groupedMoves[b.id] || []) - scorePulse(a, groupedMoves[a.id] || []));
+    if (filter === 'new') return list.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    return list.sort((a,b) => scorePulse(b, groupedMoves[b.id] || []) - scorePulse(a, groupedMoves[a.id] || []));
+  }, [pulses, groupedMoves, filter]);
+
+  return <main className="screen">
+    <Header onSearch={(where) => where === 'search' && document.dispatchEvent(new CustomEvent('pulse:search'))} onActivity={() => document.dispatchEvent(new CustomEvent('pulse:activity'))}/>
+    <div className="pulse-content">
+      <section className="pulse-feature"><div><h1>See what<br/>people are changing.</h1><p>Pulse is a social feed where posts are not finished when they are posted. Someone else can move them.</p></div><button className="pulse-feature-mark" onClick={onCreate}><Sparkles size={19}/></button></section>
+      <div className="pulse-tabs">
+        <button className={`pulse-tab ${filter === 'for-you' ? 'active' : ''}`} onClick={() => setFilter('for-you')}>For you</button>
+        <button className={`pulse-tab ${filter === 'moving' ? 'active' : ''}`} onClick={() => setFilter('moving')}>Moving</button>
+        <button className={`pulse-tab ${filter === 'new' ? 'active' : ''}`} onClick={() => setFilter('new')}>New</button>
+      </div>
+      {loading ? <LoadingCards/> : filtered.length ? <div className="feed-stack">
+        {filtered.map((pulse) => <PulseCard key={pulse.id} pulse={pulse} moves={groupedMoves[pulse.id] || []} actor={actor} onOpen={onOpen} onLike={onLike}/>) }
+      </div> : <div className="pulse-empty"><Sparkles size={22}/><h3>Nothing is moving yet.</h3><p>Start the first Pulse. Put something into the feed and leave room for someone else to change it.</p><button className="primary-button" style={{ marginTop: 18 }} onClick={onCreate}>Start something <ArrowRight size={15}/></button></div>}
+    </div>
+  </main>;
+}
+
+function Detail({ pulse, moves, actor, onBack, onJoin, onShare, onLike }) {
+  const seed = seedFromPulse(pulse);
+  const seedMedia = seed?.dataUrl;
+  const sorted = [...moves].sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+  const hasJoined = sorted.some((m) => m.actor_id === actor);
+  const latest = sorted.at(-1);
+  const currentMedia = mediaFromContent(latest?.content) || seedMedia;
+  return <main className="screen pulse-detail fade-in">
+    <div className="pulse-content">
+      <div className="screen-toolbar"><button className="back-row" onClick={onBack}><IconButton label="Back"><ArrowLeft size={18}/></IconButton></button><div className="flex gap-2"><IconButton label="Like" onClick={() => onLike?.(pulse.id)}><Heart size={17}/></IconButton><IconButton label="Share" onClick={onShare}><Share2 size={17}/></IconButton></div></div>
+      <article className="pulse-detail-hero">
+        <div className="pulse-detail-media"><PulseImage src={currentMedia} alt={pulse.title}/></div>
+        <div className="pulse-detail-head"><div className="pulse-kicker"><span className="inline-flex items-center gap-2">{pulse.status === 'active' && <i className="pulse-live-dot"/>}{pulse.status === 'active' ? 'STILL MOVING' : 'COMPLETED'}</span><span>{formatRelative(pulse.created_at)}</span></div><h1 className="pulse-detail-title">{pulse.title}</h1><p className="pulse-detail-intent">{pulse.intent || 'No intent was written. The meaning is being made by the people who change it.'}</p></div>
+        <div className="pulse-detail-footer"><div className="pulse-stats"><Users size={14}/><span>{participantCount(sorted)} people</span><Zap size={13}/><span>{sorted.length} moves</span></div><span className="muted text-[11px] font-bold">by someone</span></div>
+      </article>
+      <div className="live-strip"><Sparkles size={15}/><span>{pulse.status === 'active' ? 'The post is still open. One more person can change it.' : 'This Pulse has stopped moving. Explore how it changed.'}</span></div>
+      <section><div className="profile-section-title">The trace</div><div className="trace">
+        <div className="trace-item"><div className="trace-rail"/><div className="trace-node">0</div><div className="trace-card"><h4>The starting point</h4><p>{seed?.text || 'A visual starting point.'}</p>{seedMedia && <img src={seedMedia} alt="Starting point"/>}</div></div>
+        {sorted.map((move, index) => { const c = contentFromMove(move); return <div className="trace-item" key={move.id}><div className="trace-rail"/><div className="trace-node">{index + 1}</div><div className="trace-card"><div className="flex items-center justify-between gap-3"><h4>{move.actor_id === actor ? 'You changed it' : 'Someone changed it'}</h4><span className="muted text-[9px] font-bold uppercase tracking-[.12em]">{move.action_type}</span></div><p>{contentPreview(c, 220)}</p>{mediaFromContent(c) && <img src={mediaFromContent(c)} alt="Move"/>}<div className="mt-2 flex items-center gap-2"><Avatar actor={move.actor_id}/><span className="muted text-[9px] font-bold">{formatRelative(move.created_at)}</span></div></div></div>; })}
+        {pulse.status === 'active' && <div className="trace-item"><div className="trace-node" style={{ borderStyle: 'dashed' }}>+</div><div className="trace-card"><h4>Next move</h4><p>Whoever enters next gets to decide what this becomes.</p></div></div>}
+      </div></section>
+    </div>
+    {pulse.status === 'active' && !hasJoined && <div className="detail-cta"><span>Change this post.</span><button onClick={onJoin}>Make a move <ArrowRight size={15}/></button></div>}
+  </main>;
+}
+
+function MoveSheet({ pulse, moves, actor, onClose, onSubmitted }) {
+  const fileRef = useRef(null);
+  const latest = moves.at(-1);
+  const director = useMemo(() => directorFor({ intent: pulse.intent, pulse, moves }), [pulse, moves]);
+  const [text, setText] = useState('');
+  const [choice, setChoice] = useState('');
+  const [photo, setPhoto] = useState('');
+  const [caption, setCaption] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const pick = async (event) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; try { setBusy(true); setPhoto(await imageFileToDataUrl(file)); } catch(e) { setError(e.message || 'Could not read the image.'); } finally { setBusy(false); } };
+  const submit = async () => {
+    if (busy) return;
+    let content;
+    if (director.inputType === 'choice') {
+      if (!choice) { setError('Pick one.'); return; }
+      content = buildMoveContent({ inputType: 'choice', choice });
+    } else if (director.inputType === 'photo' || director.inputType === 'mixed') {
+      if (!photo) { setError('Add a photo.'); return; }
+      content = buildMoveContent({ inputType: 'photo', photo, caption });
+    } else {
+      const clean = cleanText(text, 500);
+      if (!clean) { setError('Write something first.'); return; }
+      content = buildMoveContent({ inputType: 'text', text: clean });
+    }
+    setBusy(true); setError('');
+    try {
+      const stateBefore = buildState({ pulse, moves });
+      const { error: insertError } = await supabase.from('pulse_moves').insert({
+        pulse_id: pulse.id,
+        actor_id: actor,
+        parent_move_id: latest?.id || null,
+        depth: moves.length + 1,
+        action_type: director.actionType,
+        input_type: director.inputType,
+        prompt: director.prompt,
+        content: compactContent(content),
+        state_before: stateBefore,
+        state_after: { ...stateBefore, index: moves.length + 1, summary: contentPreview(content, 220), media: mediaFromContent(content), lastAction: director.actionType },
+      });
+      if (insertError) throw insertError;
+      onSubmitted();
+    } catch (e) {
+      if (String(e?.message || '').includes('duplicate') || String(e?.code || '') === '23505') setError('You already changed this Pulse. Come back later to see what happened next.');
+      else setError(e?.message || 'Could not save your move.');
+    } finally { setBusy(false); }
+  };
+
+  return <><div className="sheet-backdrop" onClick={onClose}/><section className="sheet" role="dialog" aria-modal="true" aria-label="Make a move"><div className="sheet-handle"/><div className="flex items-start justify-between gap-8"><div><p className="pulse-kicker">YOUR TURN</p><h2 className="sheet-title">{director.title}</h2></div><IconButton label="Close" onClick={onClose}><X size={18}/></IconButton></div><p className="sheet-subtitle">{director.prompt}</p>
+    <div className="prompt-card"><span className="prompt-label">THE DIRECTOR</span><p>{director.hint}</p></div>
+    {director.inputType === 'choice' && <div className="choice-list">{(director.choices.length ? director.choices : ACTION_CATALOG.choose.choices).map((item) => <button key={item} className={`choice-button ${choice === item ? 'selected' : ''}`} onClick={() => setChoice(item)}><span>{item}</span><i className="choice-dot"/></button>)}</div>}
+    {(director.inputType === 'text') && <div className="field"><label>Your move</label><textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Add something that changes the post…" maxLength={500}/><span className="muted text-[9px] font-bold text-right">{text.length}/500</span></div>}
+    {(director.inputType === 'photo' || director.inputType === 'mixed') && <div className="media-input">{photo ? <div className="media-preview"><PulseImage src={photo} alt="Your move"/></div> : <div className="media-preview"><div className="media-placeholder"><Camera size={27}/><span>Bring something into the Pulse.</span></div></div>}<input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pick}/><button className="media-button" onClick={() => fileRef.current?.click()}><Camera size={16}/> {photo ? 'Replace photo' : 'Choose photo'}</button><div className="field"><label>Optional note</label><input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="One sentence is enough." maxLength={160}/></div></div>}
+    {error && <div className="error">{error}</div>}
+    <div className="sheet-actions"><button className="primary-button" onClick={submit} disabled={busy}>{busy ? 'Changing…' : 'Change the Pulse'} {!busy && <ArrowRight size={15}/>}</button><button className="secondary-button" onClick={onClose}>Later</button></div>
+  </section></>;
+}
+
+function Create({ onBack, onCreated }) {
+  const photoRef = useRef(null);
+  const draft = readLocal(DRAFT_KEY, {});
+  const [seedType, setSeedType] = useState(draft.seedType || 'photo');
+  const [photo, setPhoto] = useState(draft.photo || '');
+  const [text, setText] = useState(draft.text || '');
+  const [intent, setIntent] = useState(draft.intent || '');
+  const [title, setTitle] = useState(draft.title || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [stage, setStage] = useState(1);
+  const saveDraft = useCallback(() => { if (typeof window !== 'undefined') window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ seedType, photo, text, intent, title })); }, [seedType, photo, text, intent, title]);
+  useEffect(() => { saveDraft(); }, [saveDraft]);
+
+  const pick = async (event) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; try { setBusy(true); setPhoto(await imageFileToDataUrl(file)); } catch(e) { setError(e.message || 'Could not read image.'); } finally { setBusy(false); } };
+  const canNext = stage === 1 ? (seedType === 'photo' ? !!photo : !!cleanText(text)) : !!cleanText(intent);
+  const publish = async () => {
+    const cleanIntent = cleanText(intent, 500);
+    if (!canNext) { setError(stage === 1 ? 'Leave a starting point first.' : 'Tell the Pulse what direction you want it to have.'); return; }
+    setBusy(true); setError('');
+    try {
+      const seed = normalizeSeed({ type: seedType, dataUrl: photo, text });
+      const finalTitle = cleanText(title, 80) || deriveTitle({ text: seed.text, intent: cleanIntent, seedType: seed.type });
+      const { data, error: insertError } = await supabase.from('pulses').insert({ creator_id: actorId(), seed_type: seed.type, seed: seed, title: finalTitle, intent: cleanIntent, status: 'active', metadata: { version: 'social-v1' } }).select('*').single();
+      if (insertError) throw insertError;
+      if (typeof window !== 'undefined') window.localStorage.removeItem(DRAFT_KEY);
+      onCreated(data);
+    } catch(e) { setError(e.message || 'Could not start this Pulse.'); } finally { setBusy(false); }
+  };
+  return <main className="screen fade-in"><div className="pulse-content">
+    <div className="screen-toolbar"><div className="back-row"><IconButton label="Back" onClick={onBack}><ArrowLeft size={18}/></IconButton><span className="screen-title">Start something</span></div><span className="muted text-[10px] font-bold">{stage}/2</span></div>
+    {stage === 1 ? <>
+      <section className="pulse-feature" style={{ paddingBottom: 16 }}><div><h1>Put something<br/>into the world.</h1><p>It can be ordinary. The interesting part is what somebody else does to it.</p></div></section>
+      <div className="create-seed"><div className="seed-switch"><button className={`seed-option ${seedType === 'photo' ? 'active' : ''}`} onClick={() => setSeedType('photo')}><Camera size={15}/> Photo</button><button className={`seed-option ${seedType === 'text' ? 'active' : ''}`} onClick={() => setSeedType('text')}><Wand2 size={15}/> Thought</button></div>
+        {seedType === 'photo' ? <div className="media-input">{photo ? <div className="media-preview"><PulseImage src={photo} alt="Starting point"/></div> : <div className="media-preview"><div className="media-placeholder"><Camera size={27}/><span>A place, detail, object, or scene.</span></div></div>}<input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={pick}/><button className="media-button" onClick={() => photoRef.current?.click()}>{photo ? 'Replace starting photo' : 'Choose starting photo'}</button></div> : <div className="field"><label>Starting thought</label><textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Leave a thought for somebody else to change…" maxLength={280}/></div>}
+      </div>
+      {error && <div className="error">{error}</div>}
+      <button className="primary-button full-button" style={{ marginTop: 14 }} disabled={!canNext || busy} onClick={() => setStage(2)}>Next <ArrowRight size={15}/></button>
+    </> : <>
+      <section className="pulse-feature" style={{ paddingBottom: 16 }}><div><h1>Give it<br/>a direction.</h1><p>You are not writing the final task. Tell the system what you want the post to become and let people take it from there.</p></div></section>
+      <div className="field"><label>What do you want people to do with it?</label><textarea value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="Make this ordinary place feel personal. Let different people see it differently…" maxLength={500}/></div>
+      <div className="field"><label>Title <span className="muted">optional</span></label><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="A short name for the Pulse" maxLength={80}/></div>
+      <div className="create-preview"><div className="pulse-kicker"><span>PREVIEW</span><span>the rest is unknown</span></div><div className="preview-flow"><div className="preview-step"><span>01</span><strong>YOUR START</strong></div><div className="preview-step"><span>02</span><strong>SOMEONE MOVES IT</strong></div><div className="preview-step"><span>03</span><strong>THE FEED CHANGES</strong></div></div></div>
+      {error && <div className="error">{error}</div>}
+      <div className="sheet-actions"><button className="secondary-button" onClick={() => setStage(1)}>Back</button><button className="primary-button" disabled={busy} onClick={publish}>{busy ? 'Publishing…' : 'Publish Pulse'} <Send size={15}/></button></div>
+    </>}
+  </div></main>;
+}
+
+function Activity({ pulses, groupedMoves, actor, onOpen }) {
+  const events = useMemo(() => {
+    const rows = [];
+    for (const p of pulses) {
+      for (const m of (groupedMoves[p.id] || []).slice().reverse()) {
+        if (m.actor_id === actor) continue;
+        rows.push({ id: m.id, type: 'move', pulse: p, move: m, time: m.created_at, text: `Someone changed “${p.title}”.` });
+      }
+    }
+    return rows.sort((a,b) => new Date(b.time) - new Date(a.time)).slice(0, 30);
+  }, [pulses, groupedMoves, actor]);
+  const mine = pulses.filter((p) => p.creator_id === actor);
+  return <main className="screen fade-in"><div className="pulse-content"><div className="screen-toolbar"><span className="screen-title">Activity</span><IconButton label="Refresh" onClick={() => window.location.reload()}><RefreshCw size={17}/></IconButton></div>
+    <div className="profile-section-title">Your Pulses moving</div>
+    {mine.length ? <div className="activity-list">{mine.slice(0,8).map((p) => <button key={p.id} className="activity-item" onClick={() => onOpen(p.id)}><div className="activity-badge"><Zap size={16}/></div><div><p>{p.title}</p><small>{groupedMoves[p.id]?.length || 0} moves · {p.status}</small></div><ChevronRight size={15} className="activity-arrow"/></button>)}</div> : <div className="pulse-empty"><p>You have not started a Pulse yet.</p></div>}
+    <div className="profile-section-title">Recent changes</div>
+    {events.length ? <div className="activity-list">{events.map((event) => <button key={event.id} className="activity-item" onClick={() => onOpen(event.pulse.id)}><div className="activity-badge"><Sparkles size={16}/></div><div><p>{event.text}</p><small>{formatRelative(event.time)} · {event.move.action_type}</small></div><ChevronRight size={15} className="activity-arrow"/></button>)}</div> : <div className="pulse-empty"><p>When people change your Pulses, you will see it here.</p></div>}
+  </div></main>;
+}
+
+function Explore({ pulses, groupedMoves, search, setSearch, onOpen }) {
+  const q = search.trim().toLowerCase();
+  const results = q ? pulses.filter((p) => `${p.title} ${p.intent}`.toLowerCase().includes(q)) : pulses.filter((p) => p.status === 'active');
+  return <main className="screen fade-in"><div className="pulse-content"><div className="screen-toolbar"><span className="screen-title">Explore</span></div><div className="field" style={{ marginTop: 0 }}><label>Find a Pulse</label><div style={{ position:'relative' }}><Search size={16} style={{ position:'absolute', left:14, top:15, color:'var(--pulse-muted)' }}/><input style={{ paddingLeft:42 }} autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search ideas, places, questions…"/></div></div>
+    <div className="profile-section-title">{q ? `${results.length} results` : 'Open now'}</div>
+    {results.length ? <div className="feed-stack">{results.map((p) => <PulseCard key={p.id} pulse={p} moves={groupedMoves[p.id] || []} onOpen={onOpen}/>)}</div> : <div className="pulse-empty"><Search size={22}/><h3>No matches.</h3><p>Try a different word. Pulse search works on the Pulse title and intent.</p></div>}
+  </div></main>;
+}
+
+function You({ pulses, groupedMoves, actor, onOpen, onCreate }) {
+  const mine = pulses.filter((p) => p.creator_id === actor);
+  const participated = pulses.filter((p) => (groupedMoves[p.id] || []).some((m) => m.actor_id === actor));
+  const moveCount = participated.reduce((n,p) => n + (groupedMoves[p.id] || []).filter((m) => m.actor_id === actor).length, 0);
+  return <main className="screen fade-in"><div className="pulse-content"><div className="screen-toolbar"><span className="screen-title">You</span><IconButton label="Menu"><Menu size={18}/></IconButton></div>
+    <section className="profile-hero"><div className="avatar">{initials(actor)}</div><div><h2>Anonymous</h2><p>You are known by what you change, not by a profile you have to maintain.</p></div></section>
+    <div className="profile-stats"><div className="profile-stat"><span>Started</span><strong>{mine.length}</strong></div><div className="profile-stat"><span>Entered</span><strong>{participated.length}</strong></div><div className="profile-stat"><span>Moves</span><strong>{moveCount}</strong></div></div>
+    <div className="profile-section-title">Started by you</div>
+    {mine.length ? <div className="feed-stack">{mine.map((p) => <PulseCard key={p.id} pulse={p} moves={groupedMoves[p.id] || []} actor={actor} onOpen={onOpen}/>)}</div> : <div className="pulse-empty"><Plus size={21}/><h3>Start your first Pulse.</h3><p>Post a starting point. You decide the direction; someone else decides what happens next.</p><button className="primary-button" style={{ marginTop: 16 }} onClick={onCreate}>Start something <ArrowRight size={15}/></button></div>}
+  </div></main>;
+}
+
+function Onboarding({ onDone }) {
+  return <div className="observer"><div className="observer-card"><div className="observer-mark"><span className="pulse-live-dot"/></div><h1>Post.<br/>Let people<br/>change it.</h1><p>Pulse is a social feed where a post is not the end. Someone else can enter, make one move, and leave the world a little different.</p><button className="primary-button" onClick={onDone}>Enter Pulse <ArrowRight size={16}/></button></div></div>;
 }
 
 export default function Page() {
   const [screen, setScreen] = useState('home');
-  const [relay, setRelay] = useState(null); const [role, setRole] = useState(''); const [token, setToken] = useState('');
-  const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [history, setHistory] = useState([]);
-  const [seedMode, setSeedMode] = useState('photo'); const [seedPhoto, setSeedPhoto] = useState(''); const [seedText, setSeedText] = useState('');
-  const [photo, setPhoto] = useState(''); const [marker, setMarker] = useState(null); const [text, setText] = useState('');
-  const [secondPhoto, setSecondPhoto] = useState(''); const [claim, setClaim] = useState(''); const [evidence, setEvidence] = useState('');
-  const [showChain, setShowChain] = useState(false); const [toast, setToast] = useState('');
-  const seedInput = useRef(null); const photoInput = useRef(null); const secondInput = useRef(null);
+  const [filter, setFilter] = useState('for-you');
+  const [pulses, setPulses] = useState([]);
+  const [groupedMoves, setGroupedMoves] = useState({});
+  const [selectedId, setSelectedId] = useState(null);
+  const [showMove, setShowMove] = useState(false);
+  const [activityPulseId, setActivityPulseId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [actor, setActor] = useState('');
 
-  const payload = useMemo(() => latestPayload(relay), [relay]);
-  const task = useMemo(() => payload?.task || START_TASK, [payload]);
-  const moves = useMemo(() => payloadsOf(relay), [relay]);
-  const count = relay?.step_count ?? stepsOf(relay).length;
-  const currentState = payload?.state || { step: count, summary: textOf(payload) || 'The chain is waiting.' };
-  const currentArtifact = imageOf(payload);
+  const loadFeed = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const { data: pulseData, error: pulseError } = await supabase.from('pulses').select('*').neq('status', 'hidden').order('updated_at', { ascending: false }).limit(60);
+      if (pulseError) throw pulseError;
+      const ids = (pulseData || []).map((p) => p.id);
+      let moveData = [];
+      if (ids.length) {
+        const { data, error: moveError } = await supabase.from('pulse_moves').select('*').in('pulse_id', ids).order('created_at', { ascending: true });
+        if (moveError) throw moveError;
+        moveData = data || [];
+      }
+      const grouped = {};
+      for (const move of moveData) (grouped[move.pulse_id] ||= []).push(move);
+      setPulses(pulseData || []); setGroupedMoves(grouped);
+    } catch (e) { setError(e?.message || 'Could not load Pulse.'); } finally { setLoading(false); }
+  }, []);
 
-  useEffect(() => setHistory(readJSON(HISTORY_KEY, [])), []);
   useEffect(() => {
-    if (!relay?.id) return;
-    const channel = supabase.channel(`pulse-${relay.id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'relays', filter: `id=eq.${relay.id}` }, ({ new: next }) => {
-      setRelay(next); setHistory(saveHistory({ id: next.id, role, status: next.status, stepCount: next.step_count ?? stepsOf(next).length, updatedAt: Date.now() }));
-      if (next.status === 'complete') setScreen('result');
-    }).subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [relay?.id, role]);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 2200); return () => clearTimeout(t); }, [toast]);
+    const id = actorId(); setActor(id);
+    if (typeof window !== 'undefined' && !window.localStorage.getItem(ONBOARDING_KEY)) setShowOnboarding(true);
+    loadFeed();
+    const channel = supabase.channel('pulse-social-feed').on('postgres_changes', { event: '*', schema: 'public', table: 'pulses' }, loadFeed).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pulse_moves' }, loadFeed).subscribe();
+    const onSearch = () => setScreen('search');
+    const onActivity = () => setScreen('activity');
+    document.addEventListener('pulse:search', onSearch); document.addEventListener('pulse:activity', onActivity);
+    return () => { supabase.removeChannel(channel); document.removeEventListener('pulse:search', onSearch); document.removeEventListener('pulse:activity', onActivity); };
+  }, [loadFeed]);
 
-  const clearMoveInputs = () => { setPhoto(''); setMarker(null); setText(''); setSecondPhoto(''); setClaim(''); setEvidence(''); setError(''); };
-  const reset = () => { setScreen('home'); setRelay(null); setRole(''); setToken(''); clearMoveInputs(); setSeedPhoto(''); setSeedText(''); setShowChain(false); };
-  const go = next => { setError(''); if (['home','create','history','you'].includes(next)) { setRelay(null); setRole(''); setToken(''); } setScreen(next); };
-  const pickImage = async (event, setter) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; try { setBusy(true); setError(''); setter(await imageFileToDataUrl(file)); } catch (e) { setError(e?.message || 'Could not read the image.'); } finally { setBusy(false); } };
+  const selectedPulse = useMemo(() => pulses.find((p) => p.id === selectedId) || null, [pulses, selectedId]);
+  const selectedMoves = selectedPulse ? (groupedMoves[selectedPulse.id] || []) : [];
 
-  async function createPulse() {
-    const clean = seedText.trim().replace(/\s+/g, ' ');
-    if (seedMode === 'photo' && !seedPhoto) { setError('Leave a starting point first.'); return; }
-    if (seedMode === 'text' && !clean) { setError('Write a starting point first.'); return; }
-    if (clean.length > 240) { setError('Keep the starting point under 240 characters.'); return; }
-    setBusy(true); setError('');
-    try {
-      const artifact = seedMode === 'photo' ? { type: 'photo', dataUrl: seedPhoto } : null;
-      const { data, error: rpcError } = await supabase.rpc('create_relay', { p_seed: JSON.stringify(starterPayload({ artifact, text: clean, creatorId: deviceId() })) });
-      if (rpcError) throw rpcError; if (!data?.id) throw Error('Could not create the Pulse.');
-      setRelay(data); setRole('creator'); setToken(''); setScreen('created');
-      saveSession(data.id, { role: 'creator', token: '' }); setHistory(saveHistory({ id: data.id, role: 'creator', status: data.status, stepCount: data.step_count ?? 0, updatedAt: Date.now() }));
-    } catch (e) { setError(e?.message || 'Could not create the Pulse.'); } finally { setBusy(false); }
-  }
+  const go = (next) => { setError(''); if (next !== 'detail') setSelectedId(null); setShowMove(false); setScreen(next); };
+  const open = (id) => { setSelectedId(id); setScreen('detail'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const like = async (id) => { if (!actor) return; await supabase.from('pulse_reactions').upsert({ pulse_id: id, actor_id: actor, reaction: 'like' }, { onConflict: 'pulse_id,actor_id,reaction' }); };
+  const share = async () => { if (!selectedPulse) return; const url = `${window.location.origin}/?pulse=${selectedPulse.id}`; try { await navigator.clipboard.writeText(url); setActivityPulseId('shared'); setTimeout(() => setActivityPulseId(null), 1600); } catch {} };
+  const created = (pulse) => { setPulses((prev) => [pulse, ...prev.filter((p) => p.id !== pulse.id)]); setGroupedMoves((prev) => ({ ...prev, [pulse.id]: [] })); setSelectedId(pulse.id); setScreen('detail'); };
+  const submitMove = () => { setShowMove(false); loadFeed(); };
 
-  async function claimPulse() {
-    setBusy(true); setError('');
-    try {
-      const { data, error: rpcError } = await supabase.rpc('claim_relay', { p_exclude_creator_id: deviceId() });
-      if (rpcError) throw rpcError; if (!data?.relay) { setError('Nothing is waiting right now.'); return; }
-      setRelay(data.relay); setRole('stranger'); setToken(data.token); clearMoveInputs(); setScreen('trace');
-      saveSession(data.relay.id, { role: 'stranger', token: data.token }); setHistory(saveHistory({ id: data.relay.id, role: 'stranger', status: data.relay.status, stepCount: data.relay.step_count ?? 0, updatedAt: Date.now() }));
-    } catch (e) { setError(e?.message || 'Could not find a Pulse.'); } finally { setBusy(false); }
-  }
-
-  async function submitMove() {
-    if (!relay || !token || busy) return;
-    const action = task.actionType; let result = {}; let artifact = payload?.artifact || null;
-    if (task.inputType === 'tap') {
-      if (!marker) { setError('Choose one place.'); return; }
-      result = { marker, summary: 'One part of the state was chosen.' }; artifact = { ...(artifact || {}), marker };
-    } else if (task.inputType === 'text') {
-      const clean = text.trim().replace(/\s+/g, ' '); if (!clean) { setError('Make your move first.'); return; }
-      if (clean.length > (task.maxLength || 160)) { setError(`Keep it under ${task.maxLength || 160} characters.`); return; }
-      result = { text: clean, summary: clean }; artifact = { type: 'text', text: clean };
-    } else if (task.inputType === 'compare') {
-      const note = text.trim().replace(/\s+/g, ' '); if (!secondPhoto || !note) { setError('Add the second scene and one sentence.'); return; }
-      if (note.length > 160) { setError('Keep the comparison under 160 characters.'); return; }
-      result = { dataUrl: secondPhoto, note, summary: note }; artifact = { type: 'compare', previousDataUrl: currentArtifact, dataUrl: secondPhoto, note };
-    } else if (task.inputType === 'challenge') {
-      const c = claim.trim().replace(/\s+/g, ' '); const e = evidence.trim().replace(/\s+/g, ' ');
-      if (!c || !secondPhoto || !e) { setError('Add the claim, evidence, and photo.'); return; }
-      if (c.length > 160 || e.length > 160) { setError('Keep each sentence under 160 characters.'); return; }
-      result = { claim: c, dataUrl: secondPhoto, evidence: e, summary: e }; artifact = { type: 'challenge', dataUrl: secondPhoto, claim: c, evidence: e };
-    } else {
-      if (!photo) { setError('Add something for the next person.'); return; }
-      result = { dataUrl: photo, summary: 'A new scene was added.' }; artifact = { type: 'photo', dataUrl: photo };
-    }
-    const step = count + 1;
-    const previous = { ...payload, action, result, artifact, task };
-    const actionHistory = [...moves.map(x => x.action).filter(Boolean), action];
-    const nextTask = step >= MAX_STEPS ? null : generateNextTask({ previous, history: actionHistory, seed: relay.id, step: step + 1, state: { ...currentState, artifact } });
-    const output = serializeStep({ artifact, action, result, step, task, nextTask, state: { ...currentState, artifact } });
-    setBusy(true); setError('');
-    try {
-      const { data, error: rpcError } = await supabase.rpc('submit_relay_step', { p_relay_id: relay.id, p_token: token, p_output: output });
-      if (rpcError) throw rpcError;
-      setRelay(data); setToken(''); saveSession(relay.id, { role, token: '' }); setHistory(saveHistory({ id: data.id, role, status: data.status, stepCount: data.step_count ?? stepsOf(data).length, updatedAt: Date.now() })); clearMoveInputs();
-      setScreen(data.status === 'complete' ? 'result' : 'waiting');
-    } catch (e) { setError(e?.message || 'Could not pass the Pulse on.'); } finally { setBusy(false); }
-  }
-
-  async function resume(entry) {
-    setBusy(true); setError('');
-    try {
-      const { data, error: fetchError } = await supabase.from('relays').select('*').eq('id', entry.id).maybeSingle();
-      if (fetchError || !data) throw fetchError || Error('That Pulse is no longer available.');
-      const session = readJSON(SESSION_KEY, {})[entry.id] || {};
-      setRelay(data); setRole(entry.role || session.role || 'creator'); setToken(session.token || '');
-      setScreen(data.status === 'complete' ? 'result' : session.token ? 'trace' : 'created');
-    } catch (e) { setError(e?.message || 'Could not open that Pulse.'); } finally { setBusy(false); }
-  }
-
-  const inputUI = () => {
-    if (task.inputType === 'tap') return <div className="space-y-3"><div className="relative aspect-[4/3] overflow-hidden rounded-[28px] bg-[#e7e0d4]" onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setMarker({ x: ((e.clientX-r.left)/r.width)*100, y: ((e.clientY-r.top)/r.height)*100 }); }}><Photo src={currentArtifact}/>{marker && <motion.div initial={{ scale: .3 }} animate={{ scale: 1 }} className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white/20 shadow-[0_0_0_5px_rgba(0,0,0,.24)]" style={{ left: `${marker.x}%`, top: `${marker.y}%` }}/>}</div><p className="text-xs text-[#85867a]">Choose the part you want the chain to keep.</p></div>;
-    if (task.inputType === 'text') return <textarea autoFocus value={text} onChange={e => setText(e.target.value)} rows={5} maxLength={task.maxLength || 160} placeholder="Make your move…" className="w-full resize-none rounded-[24px] border border-[#24251f]/10 bg-white/70 p-5 text-base outline-none focus:border-[#24251f]/30"/>;
-    if (task.inputType === 'compare') return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><div className="aspect-square overflow-hidden rounded-[22px]"><Photo src={currentArtifact}/></div><button onClick={() => secondInput.current?.click()} className="relative aspect-square overflow-hidden rounded-[22px] border border-dashed border-[#24251f]/20 bg-white/50">{secondPhoto ? <Photo src={secondPhoto}/> : <div className="grid h-full place-items-center text-[#85867a]"><Camera/><span className="absolute bottom-3 text-[11px] font-semibold">Add scene</span></div>}</button></div><textarea value={text} onChange={e => setText(e.target.value)} rows={3} maxLength={160} placeholder="What changed between them?" className="w-full resize-none rounded-[22px] border border-[#24251f]/10 bg-white/70 p-4 text-sm outline-none"/></div>;
-    if (task.inputType === 'challenge') return <div className="space-y-3"><input value={claim} onChange={e => setClaim(e.target.value)} maxLength={160} placeholder="Your claim…" className="w-full rounded-[20px] border border-[#24251f]/10 bg-white/70 p-4 text-sm outline-none"/><button onClick={() => secondInput.current?.click()} className="relative aspect-[16/10] w-full overflow-hidden rounded-[24px] border border-dashed border-[#24251f]/20 bg-white/50">{secondPhoto ? <Photo src={secondPhoto}/> : <div className="grid h-full place-items-center text-[#85867a]"><Camera size={25}/><span className="text-xs font-semibold">Add evidence</span></div>}</button><textarea value={evidence} onChange={e => setEvidence(e.target.value)} rows={3} maxLength={160} placeholder="Why does this evidence matter?" className="w-full resize-none rounded-[20px] border border-[#24251f]/10 bg-white/70 p-4 text-sm outline-none"/></div>;
-    return <button onClick={() => photoInput.current?.click()} className="relative aspect-[4/3] w-full overflow-hidden rounded-[28px] border border-dashed border-[#24251f]/20 bg-white/50">{photo ? <Photo src={photo}/> : <div className="grid h-full place-items-center gap-2 text-[#85867a]"><Camera size={28}/><span className="text-sm font-semibold">Add what you found</span></div>}</button>;
-  };
-
-  const pageClass = 'mx-auto min-h-screen w-full max-w-xl px-5 pb-32 pt-6';
-  const hiddenInputs = <><input ref={seedInput} type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, setSeedPhoto)}/><input ref={photoInput} type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, setPhoto)}/><input ref={secondInput} type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, setSecondPhoto)}/></>;
-
-  if (screen === 'home') return <main className={pageClass}>{hiddenInputs}<header className="flex items-center justify-between"><div><p className="text-[10px] font-bold tracking-[.28em] text-[#85867a]">A HUMAN RELAY</p><h1 className="mt-1 text-3xl font-black tracking-[-.04em]">PULSE</h1></div><button onClick={() => go('you')} className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/10 bg-white/55"><Users size={18}/></button></header>
-    <section className="pt-10"><p className="text-[11px] font-bold tracking-[.2em] text-[#85867a]">FOR YOU</p><div className="mt-4 overflow-hidden rounded-[32px] bg-[#24251f] p-6 text-[#f8f3e9] shadow-[0_24px_70px_rgba(36,37,31,.15)]"><div className="flex items-center justify-between text-[10px] font-bold tracking-[.18em] text-white/50"><span>THE NEXT MOVE IS YOURS</span><Sparkles size={16}/></div><h2 className="mt-16 max-w-[310px] text-3xl font-bold leading-[1.05] tracking-[-.04em]">Someone changed it.<br/>You decide what happens next.</h2><Button onClick={claimPulse} disabled={busy} className="mt-8 bg-[#f8f3e9] text-[#24251f]">Enter a Pulse</Button></div></section>
-    <section className="mt-10"><div className="flex items-end justify-between"><div><p className="text-[11px] font-bold tracking-[.2em] text-[#85867a]">STILL MOVING</p><h2 className="mt-1 text-xl font-bold">Find your next move.</h2></div><span className="text-xs text-[#85867a]">Live</span></div><button onClick={claimPulse} className="mt-4 w-full rounded-[26px] border border-[#24251f]/8 bg-white/55 p-5 text-left"><div className="flex items-center gap-3"><span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#24251f]"/><span className="text-sm font-semibold">Pulses are moving now</span></div><p className="mt-2 text-sm leading-5 text-[#85867a]">Every one has a state waiting for another human.</p><div className="mt-4 flex items-center gap-1"><span className="h-1 flex-1 rounded bg-[#24251f]"/><span className="h-1 flex-1 rounded bg-[#24251f]"/><span className="h-1 flex-1 rounded bg-[#24251f]/10"/><span className="h-1 flex-1 rounded bg-[#24251f]/10"/><span className="h-1 flex-1 rounded bg-[#24251f]/10"/></div></button></section>
-    <section className="mt-10 grid grid-cols-2 gap-3"><button onClick={() => go('create')} className="rounded-[24px] bg-white/65 p-5 text-left"><Plus size={19}/><p className="mt-8 text-sm font-bold">Start one</p><p className="mt-1 text-xs text-[#85867a]">Leave a seed.</p></button><button onClick={() => go('history')} className="rounded-[24px] bg-white/65 p-5 text-left"><History size={19}/><p className="mt-8 text-sm font-bold">Your traces</p><p className="mt-1 text-xs text-[#85867a]">See what you changed.</p></button></section>
-    {error && <p className="mt-5 rounded-2xl bg-[#24251f]/6 p-3 text-center text-xs text-[#6c6d64]">{error}</p>}<BottomNav screen={screen} go={go}/></main>;
-
-  if (screen === 'create') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center gap-3"><Back onClick={() => go('home')}/><div><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">CREATE</p><h1 className="text-xl font-bold">Start a Pulse</h1></div></div><div className="mt-10"><h2 className="text-4xl font-bold leading-none tracking-[-.05em]">Give people<br/>something to change.</h2><p className="mt-4 max-w-sm text-sm leading-6 text-[#85867a]">Don't make the ending. Leave a starting point.</p><div className="mt-8 flex gap-2"><button onClick={() => setSeedMode('photo')} className={`rounded-full px-4 py-2 text-xs font-bold ${seedMode === 'photo' ? 'bg-[#24251f] text-white' : 'bg-white/60'}`}>PHOTO</button><button onClick={() => setSeedMode('text')} className={`rounded-full px-4 py-2 text-xs font-bold ${seedMode === 'text' ? 'bg-[#24251f] text-white' : 'bg-white/60'}`}>WORDS</button></div>{seedMode === 'photo' ? <button onClick={() => seedInput.current?.click()} className="relative mt-4 aspect-[4/3] w-full overflow-hidden rounded-[30px] bg-[#e7e0d4]">{seedPhoto ? <Photo src={seedPhoto}/> : <div className="grid h-full place-items-center gap-2 text-[#85867a]"><Camera size={30}/><span className="text-sm font-semibold">Capture the beginning</span></div>}</button> : <textarea value={seedText} onChange={e => setSeedText(e.target.value)} rows={7} maxLength={240} placeholder="A place. A question. A strange detail. Anything that can be changed by another person." className="mt-4 w-full resize-none rounded-[30px] border border-[#24251f]/10 bg-white/65 p-6 text-base leading-6 outline-none"/>}<div className="mt-5 rounded-[24px] bg-white/55 p-5"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">WHAT HAPPENS NEXT</p><p className="mt-2 text-sm leading-6">Someone else sees your starting point, makes one move, and passes the changed state forward.</p></div><Button onClick={createPulse} disabled={busy} className="mt-5 w-full">Launch Pulse</Button>{error && <p className="mt-4 text-center text-xs text-[#6c6d64]">{error}</p>}</div><BottomNav screen={screen} go={go}/></main>;
-
-  if (screen === 'created') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center gap-3"><Back onClick={() => go('home')}/><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">YOUR PULSE</p></div><div className="mt-14"><div className="grid h-16 w-16 place-items-center rounded-full bg-[#24251f] text-[#f8f3e9]"><Check size={30}/></div><h1 className="mt-7 text-5xl font-bold leading-[.95] tracking-[-.06em]">You started<br/>something.</h1><p className="mt-5 max-w-sm text-sm leading-6 text-[#85867a]">Your seed is waiting for another human to change it.</p><div className="mt-10 rounded-[28px] bg-white/60 p-5"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">THE CHAIN</p><div className="mt-5 flex items-center gap-2"><span className="grid h-10 w-10 place-items-center rounded-full bg-[#24251f] text-xs text-white">YOU</span>{Array.from({length:4}).map((_,i)=><span key={i} className="h-px flex-1 bg-[#24251f]/15"/>)}<span className="text-xs text-[#85867a]">REVEAL</span></div></div><Button onClick={() => setScreen('waiting')} className="mt-5 w-full">Watch it move</Button></div></main>;
-
-  if (screen === 'trace') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center justify-between"><Back onClick={() => go('home')}/><span className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">BEFORE YOU</span><span className="text-xs font-bold">{count + 1} / {MAX_STEPS + 1}</span></div><div className="mt-8"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">THE MOVE BEFORE YOU</p><h1 className="mt-2 text-4xl font-bold leading-none tracking-[-.05em]">Someone left<br/>this behind.</h1><div className="mt-7">{count === 0 ? <StateCard payload={parsePayload(relay?.seed)} label="THE SEED"/> : <TraceCard payload={moves.at(-1)} index={count} />}</div><div className="mt-7 rounded-[24px] border border-[#24251f]/8 bg-white/55 p-5"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">YOUR MOVE</p><p className="mt-2 text-lg font-semibold leading-6">{task.prompt}</p><p className="mt-3 text-xs leading-5 text-[#85867a]">{task.hint}</p></div><Button onClick={() => setScreen('move')} className="mt-5 w-full">Make my move</Button></div></main>;
-
-  if (screen === 'move') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center justify-between"><Back onClick={() => setScreen('trace')}/><span className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">MOVE {count + 1}</span><span className="text-xs font-bold">{count + 1}/{MAX_STEPS}</span></div><div className="mt-7"><Progress count={count}/><div className="mt-9"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">{actionWords[task.actionType] || 'MOVE'}</p><h1 className="mt-2 text-4xl font-bold leading-[.98] tracking-[-.05em]">{task.title}</h1><p className="mt-4 text-base leading-6 text-[#5e5f57]">{task.prompt}</p><div className="mt-7">{inputUI()}</div><Button onClick={submitMove} disabled={busy} className="mt-5 w-full">{busy ? 'Passing it on…' : 'Pass it on'}</Button>{error && <p className="mt-4 text-center text-xs text-[#6c6d64]">{error}</p>}</div></div></main>;
-
-  if (screen === 'waiting') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center justify-between"><Back onClick={() => go('home')}/><span className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">PULSE IS MOVING</span><span className="text-xs font-bold">{count}/{MAX_STEPS}</span></div><div className="flex min-h-[72vh] flex-col justify-center"><div className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#24251f]"/><h1 className="mt-7 text-5xl font-bold leading-[.93] tracking-[-.06em]">Your move<br/>is out there.</h1><p className="mt-5 max-w-sm text-base leading-6 text-[#85867a]">Someone else gets what you left behind. Come back when the chain reaches the reveal.</p><div className="mt-9"><Progress count={count}/><p className="mt-3 text-xs text-[#85867a]">{count} of {MAX_STEPS} moves complete</p></div><Button onClick={() => claimPulse()} className="mt-8 w-full" secondary icon={Compass}>Find another Pulse</Button><button onClick={() => setShowChain(v => !v)} className="mt-4 text-xs font-bold underline underline-offset-4">{showChain ? 'Hide chain' : 'See what you left'}</button>{showChain && <div className="mt-5 space-y-3">{moves.map((p,i)=><TraceCard key={i} payload={p} index={i+1} highlight={role !== 'creator' && i === moves.length - 1}/>)}</div>}</div></main>;
-
-  if (screen === 'result') return <main className={`${pageClass} bg-[#24251f] text-[#f8f3e9]`}><div className="flex items-center justify-between"><button onClick={() => go('home')} className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/5"><ArrowLeft size={18}/></button><span className="text-[10px] font-bold tracking-[.22em] text-white/50">THE REVEAL</span><button onClick={() => setToast('Reveal link ready to share.')} className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/5"><Share2 size={17}/></button></div><div className="mt-12"><p className="text-[11px] font-bold tracking-[.22em] text-white/45">LOOK WHAT HAPPENED</p><h1 className="mt-3 text-5xl font-bold leading-[.9] tracking-[-.06em]">Nobody knew<br/>where this would end.</h1><div className="mt-10 space-y-3">{moves.map((p,i)=><TraceCard key={i} payload={p} index={i+1} highlight={role !== 'creator' && i === moves.length - 1}/>)}</div>{payload && <div className="mt-3 overflow-hidden rounded-[30px] bg-[#f8f3e9] text-[#24251f]"><div className="aspect-[4/3] overflow-hidden"><Photo src={imageOf(payload)}/></div><div className="p-6"><p className="text-[10px] font-bold tracking-[.22em] text-[#85867a]">FINAL STATE</p><p className="mt-2 text-2xl font-bold leading-7">{textOf(payload) || 'The chain reached its final state.'}</p></div></div>}<div className="mt-7 rounded-[28px] border border-white/10 p-6"><p className="text-[10px] font-bold tracking-[.22em] text-white/45">YOUR TRACE</p><p className="mt-2 text-xl font-semibold">{role === 'creator' ? 'You started this.' : 'YOU WERE HERE.'}</p><p className="mt-2 text-sm leading-5 text-white/55">One small action became part of the final result.</p></div><Button onClick={() => go('home')} className="mt-5 w-full bg-[#f8f3e9] text-[#24251f]">Find another Pulse</Button></div>{toast && <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-white px-5 py-3 text-xs font-bold text-[#24251f] shadow-xl">{toast}</div>}</main>;
-
-  if (screen === 'history') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center gap-3"><Back onClick={() => go('home')}/><div><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">ACTIVITY</p><h1 className="text-xl font-bold">Your traces</h1></div></div><div className="mt-9">{history.length === 0 ? <div className="rounded-[28px] bg-white/55 p-7"><p className="text-2xl font-bold">Nothing here yet.</p><p className="mt-2 text-sm leading-6 text-[#85867a]">Your first move will leave a trace.</p><Button onClick={claimPulse} className="mt-6">Find a Pulse</Button></div> : <div className="space-y-3">{history.map((entry,i)=><button key={`${entry.id}-${i}`} onClick={() => resume(entry)} className="w-full rounded-[24px] border border-[#24251f]/8 bg-white/55 p-5 text-left"><div className="flex items-center justify-between"><span className="text-[10px] font-bold tracking-[.18em] text-[#85867a]">{entry.role === 'creator' ? 'STARTED' : 'JOINED'}</span><span className="text-xs text-[#85867a]">{entry.stepCount}/{MAX_STEPS}</span></div><p className="mt-2 text-sm font-semibold">{entry.status === 'complete' ? 'Reveal ready' : 'Still moving'}</p></button>)}</div>}</div><BottomNav screen={screen} go={go}/></main>;
-
-  if (screen === 'you') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center justify-between"><Back onClick={() => go('home')}/><button onClick={() => setToast('Profile settings coming later.')} className="text-xs font-bold">Settings</button></div><div className="mt-12"><div className="grid h-20 w-20 place-items-center rounded-full bg-[#24251f] text-[#f8f3e9]"><Users size={28}/></div><h1 className="mt-5 text-4xl font-bold tracking-[-.05em]">You</h1><div className="mt-8 grid grid-cols-3 gap-2"><div className="rounded-[22px] bg-white/55 p-4"><p className="text-2xl font-bold">{history.filter(x=>x.role==='creator').length}</p><p className="mt-1 text-[10px] font-bold tracking-[.15em] text-[#85867a]">STARTED</p></div><div className="rounded-[22px] bg-white/55 p-4"><p className="text-2xl font-bold">{history.filter(x=>x.role!=='creator').length}</p><p className="mt-1 text-[10px] font-bold tracking-[.15em] text-[#85867a]">JOINED</p></div><div className="rounded-[22px] bg-white/55 p-4"><p className="text-2xl font-bold">{history.filter(x=>x.status==='complete').length}</p><p className="mt-1 text-[10px] font-bold tracking-[.15em] text-[#85867a]">REVEALS</p></div></div><div className="mt-8 rounded-[28px] bg-white/55 p-6"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">YOUR TRACE</p><p className="mt-2 text-lg font-semibold">Every Pulse keeps a little piece of what you did.</p></div></div><BottomNav screen={screen} go={go}/></main>;
-
-  return null;
+  return <div className="pulse-shell"><div className="pulse-mobile">
+    <AnimatePresence>{showOnboarding && <Onboarding onDone={() => { window.localStorage.setItem(ONBOARDING_KEY, '1'); setShowOnboarding(false); }}/>}</AnimatePresence>
+    {error && <div className="error" style={{ padding: '10px 18px', background: '#efe2d9' }}>{error}</div>}
+    <AnimatePresence mode="wait">
+      {screen === 'home' && <motion.div key="home" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}><Home pulses={pulses} groupedMoves={groupedMoves} actor={actor} loading={loading} filter={filter} setFilter={setFilter} onOpen={open} onLike={like} onCreate={() => go('create')}/></motion.div>}
+      {screen === 'detail' && selectedPulse && <motion.div key={`detail-${selectedPulse.id}`} initial={{ opacity:0, x:18 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-18 }}><Detail pulse={selectedPulse} moves={selectedMoves} actor={actor} onBack={() => go('home')} onJoin={() => setShowMove(true)} onShare={share} onLike={like}/></motion.div>}
+      {screen === 'create' && <motion.div key="create" initial={{ opacity:0, x:18 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-18 }}><Create onBack={() => go('home')} onCreated={created}/></motion.div>}
+      {screen === 'activity' && <motion.div key="activity" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}><Activity pulses={pulses} groupedMoves={groupedMoves} actor={actor} onOpen={open}/></motion.div>}
+      {screen === 'search' && <motion.div key="search" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}><Explore pulses={pulses} groupedMoves={groupedMoves} search={search} setSearch={setSearch} onOpen={open}/></motion.div>}
+      {screen === 'you' && <motion.div key="you" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}><You pulses={pulses} groupedMoves={groupedMoves} actor={actor} onOpen={open} onCreate={() => go('create')}/></motion.div>}
+    </AnimatePresence>
+    {['home','activity','search','you'].includes(screen) && <BottomNav screen={screen} go={go}/>} 
+    {selectedPulse && showMove && <MoveSheet pulse={selectedPulse} moves={selectedMoves} actor={actor} onClose={() => setShowMove(false)} onSubmitted={submitMove}/>} 
+    <AnimatePresence>{activityPulseId === 'shared' && <motion.div className="toast" initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:8 }}>Link copied.</motion.div>}</AnimatePresence>
+  </div></div>;
 }
