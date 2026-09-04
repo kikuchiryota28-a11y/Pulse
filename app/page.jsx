@@ -1,24 +1,39 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Camera, Check, Clock3, GitCompare, History, ImagePlus, MessageCircleQuestion, Plus, RotateCcw, Target, Users, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Check, Clock3, Compass, History, ImagePlus, Plus, RotateCcw, Share2, Sparkles, Target, Users, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { ACTIONS, MAX_STEPS, START_TASK, generateNextTask, latestPayload, parsePayload, serializeStep, starterPayload } from '../lib/pulse-v2';
 
-const HISTORY_KEY = 'pulse:v4:history';
-const SESSION_KEY = 'pulse:v4:sessions';
-const DEVICE_KEY = 'pulse:v4:device';
-const readJSON = (key, fallback) => { if (typeof window === 'undefined') return fallback; try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); } catch { return fallback; } };
-const stepsOf = relay => Array.isArray(relay?.steps) ? relay.steps : [];
-const payloadsOf = relay => stepsOf(relay).map(s => parsePayload(s?.output)).filter(Boolean);
-const imageOf = p => p?.artifact?.dataUrl || p?.result?.dataUrl || null;
-const textOf = p => p?.artifact?.text || p?.result?.text || p?.result?.summary || p?.result?.note || p?.result?.evidence || '';
-const deviceId = () => { if (typeof window === 'undefined') return ''; let id = localStorage.getItem(DEVICE_KEY); if (!id) { id = crypto.randomUUID(); localStorage.setItem(DEVICE_KEY, id); } return id; };
-const saveHistory = entry => { const next = [entry, ...readJSON(HISTORY_KEY, []).filter(x => x.id !== entry.id)].slice(0, 40); localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); return next; };
-const saveSession = (id, value) => { const next = readJSON(SESSION_KEY, {}); next[id] = value; localStorage.setItem(SESSION_KEY, JSON.stringify(next)); };
+const HISTORY_KEY = 'pulse:v5:history';
+const SESSION_KEY = 'pulse:v5:sessions';
+const DEVICE_KEY = 'pulse:v5:device';
 
-async function imageFileToDataUrl(file, maxSide = 900, quality = .62) {
+const readJSON = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); } catch { return fallback; }
+};
+const stepsOf = r => Array.isArray(r?.steps) ? r.steps : [];
+const payloadsOf = r => stepsOf(r).map(s => parsePayload(s?.output)).filter(Boolean);
+const imageOf = p => p?.artifact?.dataUrl || p?.result?.dataUrl || p?.state?.artifact?.dataUrl || null;
+const textOf = p => p?.artifact?.text || p?.result?.text || p?.result?.summary || p?.result?.note || p?.result?.evidence || p?.state?.summary || '';
+const deviceId = () => {
+  if (typeof window === 'undefined') return '';
+  let id = localStorage.getItem(DEVICE_KEY);
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem(DEVICE_KEY, id); }
+  return id;
+};
+const saveHistory = entry => {
+  const next = [entry, ...readJSON(HISTORY_KEY, []).filter(x => x.id !== entry.id)].slice(0, 50);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  return next;
+};
+const saveSession = (id, value) => {
+  const next = readJSON(SESSION_KEY, {}); next[id] = value; localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+};
+
+async function imageFileToDataUrl(file, maxSide = 1000, quality = .68) {
   if (!file?.type?.startsWith('image/')) throw Error('Choose an image.');
   const source = await createImageBitmap(file);
   const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
@@ -29,62 +44,77 @@ async function imageFileToDataUrl(file, maxSide = 900, quality = .62) {
   return canvas.toDataURL('image/jpeg', quality);
 }
 
-const actionMeta = {
-  [ACTIONS.OBSERVE]: { icon: Camera, label: 'Observe' }, [ACTIONS.CHOOSE]: { icon: Target, label: 'Choose' },
-  [ACTIONS.FIND]: { icon: Camera, label: 'Find' }, [ACTIONS.CONNECT]: { icon: Zap, label: 'Connect' },
-  [ACTIONS.INTERPRET]: { icon: MessageCircleQuestion, label: 'Interpret' }, [ACTIONS.COMPARE]: { icon: GitCompare, label: 'Compare' },
-  [ACTIONS.PREDICT]: { icon: Clock3, label: 'Predict' }, [ACTIONS.CHALLENGE]: { icon: MessageCircleQuestion, label: 'Challenge' },
-  [ACTIONS.TRANSFORM]: { icon: Zap, label: 'Transform' },
+const actionWords = {
+  [ACTIONS.OBSERVE]: 'OBSERVE', [ACTIONS.CHOOSE]: 'CHOOSE', [ACTIONS.FIND]: 'FIND', [ACTIONS.CONNECT]: 'CONNECT',
+  [ACTIONS.INTERPRET]: 'INTERPRET', [ACTIONS.COMPARE]: 'COMPARE', [ACTIONS.PREDICT]: 'PREDICT', [ACTIONS.CHALLENGE]: 'CHALLENGE', [ACTIONS.TRANSFORM]: 'TRANSFORM'
 };
 
-function Button({ children, onClick, disabled = false, secondary = false, icon: Icon = ArrowRight, className = '' }) {
-  return <button onClick={onClick} disabled={disabled} className={`inline-flex min-h-12 items-center justify-center gap-3 rounded-full px-6 text-sm font-semibold transition active:scale-[.98] disabled:opacity-35 ${secondary ? 'border border-[#24251f]/12 bg-white/55 text-[#24251f]' : 'bg-[#24251f] text-[#f8f3e9]'} ${className}`}>{children}<Icon size={17}/></button>;
+function Photo({ src, className = '', alt = 'Pulse' }) {
+  return src ? <img src={src} alt={alt} className={`h-full w-full object-cover ${className}`} /> : <div className={`grid h-full w-full place-items-center bg-[#e7e0d4] text-[#85867a] ${className}`}><ImagePlus size={28} /></div>;
 }
-function Photo({ src, alt = 'Pulse', className = '' }) { return src ? <img src={src} alt={alt} className={`block h-full w-full object-cover ${className}`}/> : <div className={`grid h-full w-full place-items-center bg-[#e9e2d4] text-[#7c7d71] ${className}`}><ImagePlus size={26}/></div>; }
-function BottomNav({ screen, go }) { return <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#24251f]/8 bg-[#f7f2e8]/90 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl"><div className="mx-auto flex max-w-xl items-center justify-between"><NavItem label="Pulses" active={screen === 'home'} onClick={() => go('home')} icon={Zap}/><button onClick={() => go('create')} className="grid h-12 w-12 place-items-center rounded-full bg-[#24251f] text-[#f7f2e8]"><Plus size={21}/></button><NavItem label="Activity" active={screen === 'history'} onClick={() => go('history')} icon={History}/><NavItem label="You" active={false} onClick={() => go('history')} icon={Users}/></div></nav>; }
-function NavItem({ label, active, onClick, icon: Icon }) { return <button onClick={onClick} className={`flex min-w-16 flex-col items-center gap-1 text-[10px] font-semibold tracking-wide ${active ? 'text-[#24251f]' : 'text-[#85867a]'}`}><Icon size={18}/><span>{label}</span></button>; }
+function Button({ children, onClick, disabled = false, secondary = false, icon: Icon = ArrowRight, className = '' }) {
+  return <button disabled={disabled} onClick={onClick} className={`inline-flex min-h-12 items-center justify-center gap-2.5 rounded-full px-6 text-sm font-semibold transition active:scale-[.98] disabled:opacity-35 ${secondary ? 'border border-[#24251f]/12 bg-white/55 text-[#24251f] hover:bg-white' : 'bg-[#24251f] text-[#f8f3e9] hover:-translate-y-0.5'} ${className}`}>{children}<Icon size={17}/></button>;
+}
+function Back({ onClick }) { return <button onClick={onClick} className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/10 bg-white/50"><ArrowLeft size={18}/></button>; }
+function BottomNav({ screen, go }) {
+  return <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#24251f]/8 bg-[#f7f2e8]/94 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+    <div className="mx-auto flex max-w-xl items-center justify-between">
+      <NavItem label="Pulses" active={screen === 'home'} onClick={() => go('home')} icon={Compass}/>
+      <button onClick={() => go('create')} aria-label="Create" className="grid h-12 w-12 place-items-center rounded-full bg-[#24251f] text-[#f7f2e8] shadow-lg"><Plus size={21}/></button>
+      <NavItem label="Activity" active={screen === 'history'} onClick={() => go('history')} icon={History}/>
+      <NavItem label="You" active={screen === 'you'} onClick={() => go('you')} icon={Users}/>
+    </div>
+  </nav>;
+}
+function NavItem({ label, active, onClick, icon: Icon }) { return <button onClick={onClick} className={`flex min-w-14 flex-col items-center gap-1 text-[10px] font-semibold tracking-wide ${active ? 'text-[#24251f]' : 'text-[#85867a]'}`}><Icon size={18}/><span>{label}</span></button>; }
+function Progress({ count }) { return <div className="flex items-center gap-1.5">{Array.from({ length: MAX_STEPS + 1 }).map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= count ? 'bg-[#24251f]' : 'bg-[#24251f]/10'}`} />)}</div>; }
+function StateCard({ payload, label = 'CURRENT STATE', compact = false }) {
+  const img = imageOf(payload); const txt = textOf(payload);
+  return <div className={`overflow-hidden rounded-[30px] border border-[#24251f]/8 bg-white/60 ${compact ? '' : 'shadow-[0_16px_60px_rgba(36,37,31,.06)]'}`}>
+    {img && <div className={`${compact ? 'aspect-[16/10]' : 'aspect-[4/3]'} overflow-hidden`}><Photo src={img}/></div>}
+    <div className="p-5"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">{label}</p>{txt && <p className="mt-2 text-base leading-6 text-[#24251f]">{txt}</p>}</div>
+  </div>;
+}
+function TraceCard({ payload, index, highlight = false }) {
+  if (!payload) return null;
+  const img = imageOf(payload); const summary = textOf(payload) || 'A move changed the state.';
+  return <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className={`relative overflow-hidden rounded-[26px] border ${highlight ? 'border-[#24251f] bg-[#24251f] text-[#f8f3e9]' : 'border-[#24251f]/8 bg-white/60'}`}>
+    {img && <div className="aspect-[16/10] overflow-hidden"><Photo src={img}/></div>}
+    <div className="p-4"><div className="flex items-center justify-between"><span className={`text-[10px] font-bold tracking-[.18em] ${highlight ? 'text-white/55' : 'text-[#85867a]'}`}>MOVE {index}</span>{highlight && <span className="text-[10px] font-bold tracking-[.16em]">YOU WERE HERE</span>}</div><p className="mt-2 text-sm leading-5">{summary}</p></div>
+  </motion.div>;
+}
 
 export default function Page() {
   const [screen, setScreen] = useState('home');
-  const [relay, setRelay] = useState(null);
-  const [role, setRole] = useState('');
-  const [token, setToken] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [history, setHistory] = useState([]);
-  const [seedPhoto, setSeedPhoto] = useState('');
-  const [seedText, setSeedText] = useState('');
-  const [seedMode, setSeedMode] = useState('photo');
-  const [photo, setPhoto] = useState('');
-  const [marker, setMarker] = useState(null);
-  const [text, setText] = useState('');
-  const [secondPhoto, setSecondPhoto] = useState('');
-  const [claim, setClaim] = useState('');
-  const [evidence, setEvidence] = useState('');
-  const seedInput = useRef(null); const photoInput = useRef(null);
+  const [relay, setRelay] = useState(null); const [role, setRole] = useState(''); const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [history, setHistory] = useState([]);
+  const [seedMode, setSeedMode] = useState('photo'); const [seedPhoto, setSeedPhoto] = useState(''); const [seedText, setSeedText] = useState('');
+  const [photo, setPhoto] = useState(''); const [marker, setMarker] = useState(null); const [text, setText] = useState('');
+  const [secondPhoto, setSecondPhoto] = useState(''); const [claim, setClaim] = useState(''); const [evidence, setEvidence] = useState('');
+  const [showChain, setShowChain] = useState(false); const [toast, setToast] = useState('');
+  const seedInput = useRef(null); const photoInput = useRef(null); const secondInput = useRef(null);
 
   const payload = useMemo(() => latestPayload(relay), [relay]);
   const task = useMemo(() => payload?.task || START_TASK, [payload]);
-  const count = relay?.step_count ?? stepsOf(relay).length;
-  const currentArtifact = imageOf(payload);
   const moves = useMemo(() => payloadsOf(relay), [relay]);
+  const count = relay?.step_count ?? stepsOf(relay).length;
   const currentState = payload?.state || { step: count, summary: textOf(payload) || 'The chain is waiting.' };
-  const progress = Math.min(1, count / MAX_STEPS);
+  const currentArtifact = imageOf(payload);
 
   useEffect(() => setHistory(readJSON(HISTORY_KEY, [])), []);
   useEffect(() => {
     if (!relay?.id) return;
     const channel = supabase.channel(`pulse-${relay.id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'relays', filter: `id=eq.${relay.id}` }, ({ new: next }) => {
-      setRelay(next);
-      setHistory(saveHistory({ id: next.id, role, status: next.status, stepCount: next.step_count ?? stepsOf(next).length, updatedAt: Date.now() }));
+      setRelay(next); setHistory(saveHistory({ id: next.id, role, status: next.status, stepCount: next.step_count ?? stepsOf(next).length, updatedAt: Date.now() }));
       if (next.status === 'complete') setScreen('result');
     }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [relay?.id, role]);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 2200); return () => clearTimeout(t); }, [toast]);
 
   const clearMoveInputs = () => { setPhoto(''); setMarker(null); setText(''); setSecondPhoto(''); setClaim(''); setEvidence(''); setError(''); };
-  const reset = () => { setScreen('home'); setRelay(null); setRole(''); setToken(''); clearMoveInputs(); setSeedPhoto(''); setSeedText(''); };
-  const go = next => { setError(''); if (next === 'home' || next === 'create' || next === 'history') { setRelay(null); setRole(''); setToken(''); } setScreen(next); };
+  const reset = () => { setScreen('home'); setRelay(null); setRole(''); setToken(''); clearMoveInputs(); setSeedPhoto(''); setSeedText(''); setShowChain(false); };
+  const go = next => { setError(''); if (['home','create','history','you'].includes(next)) { setRelay(null); setRole(''); setToken(''); } setScreen(next); };
   const pickImage = async (event, setter) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; try { setBusy(true); setError(''); setter(await imageFileToDataUrl(file)); } catch (e) { setError(e?.message || 'Could not read the image.'); } finally { setBusy(false); } };
 
   async function createPulse() {
@@ -97,7 +127,7 @@ export default function Page() {
       const artifact = seedMode === 'photo' ? { type: 'photo', dataUrl: seedPhoto } : null;
       const { data, error: rpcError } = await supabase.rpc('create_relay', { p_seed: JSON.stringify(starterPayload({ artifact, text: clean, creatorId: deviceId() })) });
       if (rpcError) throw rpcError; if (!data?.id) throw Error('Could not create the Pulse.');
-      setRelay(data); setRole('creator'); setToken(''); setScreen('waiting');
+      setRelay(data); setRole('creator'); setToken(''); setScreen('created');
       saveSession(data.id, { role: 'creator', token: '' }); setHistory(saveHistory({ id: data.id, role: 'creator', status: data.status, stepCount: data.step_count ?? 0, updatedAt: Date.now() }));
     } catch (e) { setError(e?.message || 'Could not create the Pulse.'); } finally { setBusy(false); }
   }
@@ -106,8 +136,8 @@ export default function Page() {
     setBusy(true); setError('');
     try {
       const { data, error: rpcError } = await supabase.rpc('claim_relay', { p_exclude_creator_id: deviceId() });
-      if (rpcError) throw rpcError; if (!data?.relay) { setError('No Pulse is waiting right now.'); return; }
-      setRelay(data.relay); setRole('stranger'); setToken(data.token); clearMoveInputs(); setScreen('move');
+      if (rpcError) throw rpcError; if (!data?.relay) { setError('Nothing is waiting right now.'); return; }
+      setRelay(data.relay); setRole('stranger'); setToken(data.token); clearMoveInputs(); setScreen('trace');
       saveSession(data.relay.id, { role: 'stranger', token: data.token }); setHistory(saveHistory({ id: data.relay.id, role: 'stranger', status: data.relay.status, stepCount: data.relay.step_count ?? 0, updatedAt: Date.now() }));
     } catch (e) { setError(e?.message || 'Could not find a Pulse.'); } finally { setBusy(false); }
   }
@@ -138,8 +168,8 @@ export default function Page() {
     const step = count + 1;
     const previous = { ...payload, action, result, artifact, task };
     const actionHistory = [...moves.map(x => x.action).filter(Boolean), action];
-    const nextTask = step >= MAX_STEPS ? null : generateNextTask({ previous, history: actionHistory, seed: relay.id, step: step + 1, state: currentState });
-    const output = serializeStep({ artifact, action, result, step, task, nextTask, state: currentState });
+    const nextTask = step >= MAX_STEPS ? null : generateNextTask({ previous, history: actionHistory, seed: relay.id, step: step + 1, state: { ...currentState, artifact } });
+    const output = serializeStep({ artifact, action, result, step, task, nextTask, state: { ...currentState, artifact } });
     setBusy(true); setError('');
     try {
       const { data, error: rpcError } = await supabase.rpc('submit_relay_step', { p_relay_id: relay.id, p_token: token, p_output: output });
@@ -156,54 +186,42 @@ export default function Page() {
       if (fetchError || !data) throw fetchError || Error('That Pulse is no longer available.');
       const session = readJSON(SESSION_KEY, {})[entry.id] || {};
       setRelay(data); setRole(entry.role || session.role || 'creator'); setToken(session.token || '');
-      setScreen(data.status === 'complete' ? 'result' : session.token ? 'move' : 'waiting');
+      setScreen(data.status === 'complete' ? 'result' : session.token ? 'trace' : 'created');
     } catch (e) { setError(e?.message || 'Could not open that Pulse.'); } finally { setBusy(false); }
   }
 
-  const taskInput = () => {
-    if (task.inputType === 'tap') return <div className="space-y-3"><div className="relative aspect-[4/3] overflow-hidden rounded-[28px] bg-[#e9e2d4]" onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setMarker({ x: ((e.clientX-r.left)/r.width)*100, y: ((e.clientY-r.top)/r.height)*100 }); }}><Photo src={currentArtifact}/>{marker && <motion.div initial={{ scale: .4 }} animate={{ scale: 1 }} className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white/10 shadow-[0_0_0_5px_rgba(0,0,0,.25)]" style={{ left: `${marker.x}%`, top: `${marker.y}%` }}/>}</div><p className="text-sm text-[#7d7e72]">Tap the part you want to carry forward.</p></div>;
-    if (task.inputType === 'text') return <textarea autoFocus value={text} onChange={e => setText(e.target.value)} rows={5} maxLength={task.maxLength || 160} placeholder="Make your move…" className="w-full resize-none rounded-[28px] border border-[#24251f]/10 bg-white/65 p-5 text-lg outline-none placeholder:text-[#aaa99e] focus:border-[#24251f]/25"/>;
-    if (task.inputType === 'compare') return <div className="space-y-3"><div className="grid aspect-[4/3] overflow-hidden rounded-[28px] bg-[#e9e2d4] grid-cols-2"><Photo src={currentArtifact}/><button onClick={() => photoInput.current?.click()} className="relative"><Photo src={secondPhoto}/>{!secondPhoto && <span className="absolute inset-0 grid place-items-center text-xs font-semibold">Add scene</span>}</button></div><input ref={photoInput} type="file" accept="image/*" className="hidden" onChange={e => pickImage(e,setSecondPhoto)}/><textarea value={text} onChange={e=>setText(e.target.value)} rows={2} maxLength={160} placeholder="What changed?" className="w-full resize-none rounded-[24px] border border-[#24251f]/10 bg-white/65 p-4 outline-none"/></div>;
-    if (task.inputType === 'challenge') return <div className="space-y-3"><input value={claim} onChange={e=>setClaim(e.target.value)} maxLength={160} placeholder="The current idea is…" className="w-full rounded-[24px] border border-[#24251f]/10 bg-white/65 p-4 outline-none"/><button onClick={() => photoInput.current?.click()} className="relative aspect-[4/3] w-full overflow-hidden rounded-[28px] bg-[#e9e2d4]"><Photo src={secondPhoto}/>{!secondPhoto && <span className="absolute inset-0 grid place-items-center text-sm font-semibold">Add evidence</span>}</button><input ref={photoInput} type="file" accept="image/*" className="hidden" onChange={e=>pickImage(e,setSecondPhoto)}/><textarea value={evidence} onChange={e=>setEvidence(e.target.value)} rows={2} maxLength={160} placeholder="How does it challenge the idea?" className="w-full resize-none rounded-[24px] border border-[#24251f]/10 bg-white/65 p-4 outline-none"/></div>;
-    return <div className="space-y-3"><button onClick={() => photoInput.current?.click()} className="relative aspect-[4/3] w-full overflow-hidden rounded-[28px] bg-[#e9e2d4]"><Photo src={photo}/>{!photo && <span className="absolute inset-0 grid place-items-center gap-2 text-sm font-semibold"><Camera size={22}/>Add a scene</span>}</button><input ref={photoInput} type="file" accept="image/*" className="hidden" onChange={e=>pickImage(e,setPhoto)}/></div>;
+  const inputUI = () => {
+    if (task.inputType === 'tap') return <div className="space-y-3"><div className="relative aspect-[4/3] overflow-hidden rounded-[28px] bg-[#e7e0d4]" onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setMarker({ x: ((e.clientX-r.left)/r.width)*100, y: ((e.clientY-r.top)/r.height)*100 }); }}><Photo src={currentArtifact}/>{marker && <motion.div initial={{ scale: .3 }} animate={{ scale: 1 }} className="absolute h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white/20 shadow-[0_0_0_5px_rgba(0,0,0,.24)]" style={{ left: `${marker.x}%`, top: `${marker.y}%` }}/>}</div><p className="text-xs text-[#85867a]">Choose the part you want the chain to keep.</p></div>;
+    if (task.inputType === 'text') return <textarea autoFocus value={text} onChange={e => setText(e.target.value)} rows={5} maxLength={task.maxLength || 160} placeholder="Make your move…" className="w-full resize-none rounded-[24px] border border-[#24251f]/10 bg-white/70 p-5 text-base outline-none focus:border-[#24251f]/30"/>;
+    if (task.inputType === 'compare') return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><div className="aspect-square overflow-hidden rounded-[22px]"><Photo src={currentArtifact}/></div><button onClick={() => secondInput.current?.click()} className="relative aspect-square overflow-hidden rounded-[22px] border border-dashed border-[#24251f]/20 bg-white/50">{secondPhoto ? <Photo src={secondPhoto}/> : <div className="grid h-full place-items-center text-[#85867a]"><Camera/><span className="absolute bottom-3 text-[11px] font-semibold">Add scene</span></div>}</button></div><textarea value={text} onChange={e => setText(e.target.value)} rows={3} maxLength={160} placeholder="What changed between them?" className="w-full resize-none rounded-[22px] border border-[#24251f]/10 bg-white/70 p-4 text-sm outline-none"/></div>;
+    if (task.inputType === 'challenge') return <div className="space-y-3"><input value={claim} onChange={e => setClaim(e.target.value)} maxLength={160} placeholder="Your claim…" className="w-full rounded-[20px] border border-[#24251f]/10 bg-white/70 p-4 text-sm outline-none"/><button onClick={() => secondInput.current?.click()} className="relative aspect-[16/10] w-full overflow-hidden rounded-[24px] border border-dashed border-[#24251f]/20 bg-white/50">{secondPhoto ? <Photo src={secondPhoto}/> : <div className="grid h-full place-items-center text-[#85867a]"><Camera size={25}/><span className="text-xs font-semibold">Add evidence</span></div>}</button><textarea value={evidence} onChange={e => setEvidence(e.target.value)} rows={3} maxLength={160} placeholder="Why does this evidence matter?" className="w-full resize-none rounded-[20px] border border-[#24251f]/10 bg-white/70 p-4 text-sm outline-none"/></div>;
+    return <button onClick={() => photoInput.current?.click()} className="relative aspect-[4/3] w-full overflow-hidden rounded-[28px] border border-dashed border-[#24251f]/20 bg-white/50">{photo ? <Photo src={photo}/> : <div className="grid h-full place-items-center gap-2 text-[#85867a]"><Camera size={28}/><span className="text-sm font-semibold">Add what you found</span></div>}</button>;
   };
 
-  const header = (title, back = true) => <header className="flex items-center justify-between pb-6">{back ? <button onClick={() => go('home')} className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/10 bg-white/45"><ArrowLeft size={18}/></button> : <div className="text-xs font-bold tracking-[.22em]">PULSE</div>}<span className="text-xs font-semibold text-[#7d7e72]">{title}</span><div className="w-10"/></header>;
+  const pageClass = 'mx-auto min-h-screen w-full max-w-xl px-5 pb-32 pt-6';
+  const hiddenInputs = <><input ref={seedInput} type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, setSeedPhoto)}/><input ref={photoInput} type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, setPhoto)}/><input ref={secondInput} type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, setSecondPhoto)}/></>;
 
-  return <main className="min-h-screen bg-[#f7f2e8] text-[#24251f] selection:bg-[#24251f] selection:text-[#f7f2e8]">
-    <AnimatePresence mode="wait">
-      {screen === 'home' && <motion.section key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto min-h-screen max-w-xl px-5 pb-28 pt-8">
-        {header('Pulses', false)}
-        <div className="mb-5 flex items-end justify-between"><div><p className="mb-2 text-xs font-bold uppercase tracking-[.2em] text-[#85867a]">Still moving</p><h1 className="max-w-[300px] text-[42px] font-semibold leading-[.98] tracking-[-.045em]">Something is waiting for your move.</h1></div><Zap size={25}/></div>
-        <button onClick={claimPulse} disabled={busy} className="group relative mb-5 block w-full overflow-hidden rounded-[32px] bg-[#24251f] p-6 text-left text-[#f7f2e8] shadow-xl"><div className="absolute -right-10 -top-12 h-40 w-40 rounded-full border border-white/10"/><div className="relative"><div className="mb-20 text-xs font-semibold uppercase tracking-[.2em] text-white/55">LIVE RELAY</div><div className="flex items-end justify-between"><div><div className="text-2xl font-semibold">Enter a Pulse</div><p className="mt-1 text-sm text-white/55">See what someone left. Change it.</p></div><ArrowRight className="transition-transform group-hover:translate-x-1"/></div></div></button>
-        <div className="grid grid-cols-2 gap-3"><button onClick={()=>go('create')} className="rounded-[28px] border border-[#24251f]/10 bg-white/50 p-5 text-left"><Plus size={19}/><div className="mt-12 font-semibold">Start one</div><p className="mt-1 text-xs text-[#85867a]">Leave the first move.</p></button><button onClick={()=>go('history')} className="rounded-[28px] border border-[#24251f]/10 bg-white/50 p-5 text-left"><History size={19}/><div className="mt-12 font-semibold">Your traces</div><p className="mt-1 text-xs text-[#85867a]">See where you changed things.</p></button></div>
-        {error && <p className="mt-4 rounded-2xl bg-[#24251f] p-4 text-sm text-[#f7f2e8]">{error}</p>}
-        <div className="mt-8 border-t border-[#24251f]/8 pt-6"><p className="text-xs leading-5 text-[#85867a]">A Pulse changes every time someone touches it. No two chains need to end in the same place.</p></div>
-        <BottomNav screen={screen} go={go}/>
-      </motion.section>}
+  if (screen === 'home') return <main className={pageClass}>{hiddenInputs}<header className="flex items-center justify-between"><div><p className="text-[10px] font-bold tracking-[.28em] text-[#85867a]">A HUMAN RELAY</p><h1 className="mt-1 text-3xl font-black tracking-[-.04em]">PULSE</h1></div><button onClick={() => go('you')} className="grid h-10 w-10 place-items-center rounded-full border border-[#24251f]/10 bg-white/55"><Users size={18}/></button></header>
+    <section className="pt-10"><p className="text-[11px] font-bold tracking-[.2em] text-[#85867a]">FOR YOU</p><div className="mt-4 overflow-hidden rounded-[32px] bg-[#24251f] p-6 text-[#f8f3e9] shadow-[0_24px_70px_rgba(36,37,31,.15)]"><div className="flex items-center justify-between text-[10px] font-bold tracking-[.18em] text-white/50"><span>THE NEXT MOVE IS YOURS</span><Sparkles size={16}/></div><h2 className="mt-16 max-w-[310px] text-3xl font-bold leading-[1.05] tracking-[-.04em]">Someone changed it.<br/>You decide what happens next.</h2><Button onClick={claimPulse} disabled={busy} className="mt-8 bg-[#f8f3e9] text-[#24251f]">Enter a Pulse</Button></div></section>
+    <section className="mt-10"><div className="flex items-end justify-between"><div><p className="text-[11px] font-bold tracking-[.2em] text-[#85867a]">STILL MOVING</p><h2 className="mt-1 text-xl font-bold">Find your next move.</h2></div><span className="text-xs text-[#85867a]">Live</span></div><button onClick={claimPulse} className="mt-4 w-full rounded-[26px] border border-[#24251f]/8 bg-white/55 p-5 text-left"><div className="flex items-center gap-3"><span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#24251f]"/><span className="text-sm font-semibold">Pulses are moving now</span></div><p className="mt-2 text-sm leading-5 text-[#85867a]">Every one has a state waiting for another human.</p><div className="mt-4 flex items-center gap-1"><span className="h-1 flex-1 rounded bg-[#24251f]"/><span className="h-1 flex-1 rounded bg-[#24251f]"/><span className="h-1 flex-1 rounded bg-[#24251f]/10"/><span className="h-1 flex-1 rounded bg-[#24251f]/10"/><span className="h-1 flex-1 rounded bg-[#24251f]/10"/></div></button></section>
+    <section className="mt-10 grid grid-cols-2 gap-3"><button onClick={() => go('create')} className="rounded-[24px] bg-white/65 p-5 text-left"><Plus size={19}/><p className="mt-8 text-sm font-bold">Start one</p><p className="mt-1 text-xs text-[#85867a]">Leave a seed.</p></button><button onClick={() => go('history')} className="rounded-[24px] bg-white/65 p-5 text-left"><History size={19}/><p className="mt-8 text-sm font-bold">Your traces</p><p className="mt-1 text-xs text-[#85867a]">See what you changed.</p></button></section>
+    {error && <p className="mt-5 rounded-2xl bg-[#24251f]/6 p-3 text-center text-xs text-[#6c6d64]">{error}</p>}<BottomNav screen={screen} go={go}/></main>;
 
-      {screen === 'create' && <motion.section key="create" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} className="mx-auto min-h-screen max-w-xl px-5 pb-12 pt-8">
-        {header('Create')}
-        <p className="mb-2 text-xs font-bold uppercase tracking-[.2em] text-[#85867a]">Start a Pulse</p><h1 className="text-[44px] font-semibold leading-[.95] tracking-[-.05em]">Leave a starting point.</h1><p className="mt-4 max-w-md text-[#77786c]">It can be a scene or a thought. The next person decides what happens to it.</p>
-        <div className="mt-7 flex gap-2 rounded-full bg-[#24251f]/6 p-1"><button onClick={()=>setSeedMode('photo')} className={`flex-1 rounded-full py-3 text-sm font-semibold ${seedMode==='photo'?'bg-white shadow-sm':''}`}>Scene</button><button onClick={()=>setSeedMode('text')} className={`flex-1 rounded-full py-3 text-sm font-semibold ${seedMode==='text'?'bg-white shadow-sm':''}`}>Thought</button></div>
-        <div className="mt-4">{seedMode==='photo' ? <><button onClick={()=>seedInput.current?.click()} className="relative aspect-[4/3] w-full overflow-hidden rounded-[32px] bg-[#e9e2d4]"><Photo src={seedPhoto}/>{!seedPhoto && <span className="absolute inset-0 grid place-items-center gap-2 text-sm font-semibold"><Camera size={24}/>Add a scene</span>}</button><input ref={seedInput} type="file" accept="image/*" className="hidden" onChange={e=>pickImage(e,setSeedPhoto)}/></> : <textarea value={seedText} onChange={e=>setSeedText(e.target.value)} maxLength={240} rows={7} autoFocus placeholder="Leave a thought, question, observation…" className="w-full resize-none rounded-[32px] border border-[#24251f]/10 bg-white/60 p-6 text-lg outline-none placeholder:text-[#aaa99e]"/>}</div>
-        {error && <p className="mt-4 text-sm font-medium">{error}</p>}<div className="mt-6"><Button onClick={createPulse} disabled={busy}>{busy?'Starting…':'Start Pulse'}</Button></div><p className="mt-4 text-xs leading-5 text-[#85867a]">Keep it safe and ordinary: no faces, private information, dangerous or restricted places.</p>
-      </motion.section>}
+  if (screen === 'create') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center gap-3"><Back onClick={() => go('home')}/><div><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">CREATE</p><h1 className="text-xl font-bold">Start a Pulse</h1></div></div><div className="mt-10"><h2 className="text-4xl font-bold leading-none tracking-[-.05em]">Give people<br/>something to change.</h2><p className="mt-4 max-w-sm text-sm leading-6 text-[#85867a]">Don't make the ending. Leave a starting point.</p><div className="mt-8 flex gap-2"><button onClick={() => setSeedMode('photo')} className={`rounded-full px-4 py-2 text-xs font-bold ${seedMode === 'photo' ? 'bg-[#24251f] text-white' : 'bg-white/60'}`}>PHOTO</button><button onClick={() => setSeedMode('text')} className={`rounded-full px-4 py-2 text-xs font-bold ${seedMode === 'text' ? 'bg-[#24251f] text-white' : 'bg-white/60'}`}>WORDS</button></div>{seedMode === 'photo' ? <button onClick={() => seedInput.current?.click()} className="relative mt-4 aspect-[4/3] w-full overflow-hidden rounded-[30px] bg-[#e7e0d4]">{seedPhoto ? <Photo src={seedPhoto}/> : <div className="grid h-full place-items-center gap-2 text-[#85867a]"><Camera size={30}/><span className="text-sm font-semibold">Capture the beginning</span></div>}</button> : <textarea value={seedText} onChange={e => setSeedText(e.target.value)} rows={7} maxLength={240} placeholder="A place. A question. A strange detail. Anything that can be changed by another person." className="mt-4 w-full resize-none rounded-[30px] border border-[#24251f]/10 bg-white/65 p-6 text-base leading-6 outline-none"/>}<div className="mt-5 rounded-[24px] bg-white/55 p-5"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">WHAT HAPPENS NEXT</p><p className="mt-2 text-sm leading-6">Someone else sees your starting point, makes one move, and passes the changed state forward.</p></div><Button onClick={createPulse} disabled={busy} className="mt-5 w-full">Launch Pulse</Button>{error && <p className="mt-4 text-center text-xs text-[#6c6d64]">{error}</p>}</div><BottomNav screen={screen} go={go}/></main>;
 
-      {screen === 'move' && <motion.section key="move" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto min-h-screen max-w-xl px-5 pb-10 pt-8">
-        {header(`Move ${count + 1} / ${MAX_STEPS}`)}
-        <div className="mb-8 h-1 overflow-hidden rounded-full bg-[#24251f]/8"><motion.div className="h-full rounded-full bg-[#24251f]" animate={{ width: `${progress*100}%` }}/></div>
-        <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-[#85867a]">{actionMeta[task.actionType]?.icon && (()=>{const I=actionMeta[task.actionType].icon;return <I size={15}/>})()}{task.actionLabel || actionMeta[task.actionType]?.label || 'Move'}</div>
-        <h1 className="max-w-[380px] text-[38px] font-semibold leading-[1.02] tracking-[-.04em]">{task.title}</h1><p className="mt-4 text-lg leading-7 text-[#5f6056]">{task.prompt}</p>
-        <div className="mt-7">{taskInput()}</div><p className="mt-4 text-xs leading-5 text-[#85867a]">{task.hint}</p>{error && <p className="mt-4 rounded-2xl bg-[#24251f] p-4 text-sm text-[#f7f2e8]">{error}</p>}
-        <div className="mt-6 flex items-center justify-between gap-3"><span className="text-xs font-semibold text-[#85867a]">The next person inherits your change.</span><Button onClick={submitMove} disabled={busy}>{busy?'Passing…':'Pass it on'}</Button></div>
-      </motion.section>}
+  if (screen === 'created') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center gap-3"><Back onClick={() => go('home')}/><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">YOUR PULSE</p></div><div className="mt-14"><div className="grid h-16 w-16 place-items-center rounded-full bg-[#24251f] text-[#f8f3e9]"><Check size={30}/></div><h1 className="mt-7 text-5xl font-bold leading-[.95] tracking-[-.06em]">You started<br/>something.</h1><p className="mt-5 max-w-sm text-sm leading-6 text-[#85867a]">Your seed is waiting for another human to change it.</p><div className="mt-10 rounded-[28px] bg-white/60 p-5"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">THE CHAIN</p><div className="mt-5 flex items-center gap-2"><span className="grid h-10 w-10 place-items-center rounded-full bg-[#24251f] text-xs text-white">YOU</span>{Array.from({length:4}).map((_,i)=><span key={i} className="h-px flex-1 bg-[#24251f]/15"/>)}<span className="text-xs text-[#85867a]">REVEAL</span></div></div><Button onClick={() => setScreen('waiting')} className="mt-5 w-full">Watch it move</Button></div></main>;
 
-      {screen === 'waiting' && <motion.section key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto min-h-screen max-w-xl px-5 pb-12 pt-8">{header('Moving')}<div className="pt-10"><div className="mb-7 flex h-16 w-16 items-center justify-center rounded-full bg-[#24251f] text-[#f7f2e8]"><Zap size={26}/></div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#85867a]">Pulse is moving</p><h1 className="mt-3 text-[46px] font-semibold leading-[.94] tracking-[-.05em]">Someone else gets the next move.</h1><div className="mt-10 overflow-hidden rounded-[32px] border border-[#24251f]/8 bg-white/45">{imageOf(payload) ? <div className="aspect-[4/3]"><Photo src={imageOf(payload)}/></div> : <div className="p-6 text-xl leading-8">{textOf(payload) || currentState.summary}</div>}<div className="flex items-center justify-between border-t border-[#24251f]/8 p-5"><span className="text-sm font-semibold">{count} / {MAX_STEPS} moves</span><div className="flex gap-1">{Array.from({length:MAX_STEPS}).map((_,i)=><span key={i} className={`h-2 w-7 rounded-full ${i<count?'bg-[#24251f]':'bg-[#24251f]/10'}`}/>)}</div></div></div><div className="mt-7"><Button secondary onClick={()=>go('home')} icon={ArrowLeft}>Back to Pulses</Button></div></div></motion.section>}
+  if (screen === 'trace') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center justify-between"><Back onClick={() => go('home')}/><span className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">BEFORE YOU</span><span className="text-xs font-bold">{count + 1} / {MAX_STEPS + 1}</span></div><div className="mt-8"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">THE MOVE BEFORE YOU</p><h1 className="mt-2 text-4xl font-bold leading-none tracking-[-.05em]">Someone left<br/>this behind.</h1><div className="mt-7">{count === 0 ? <StateCard payload={parsePayload(relay?.seed)} label="THE SEED"/> : <TraceCard payload={moves.at(-1)} index={count} />}</div><div className="mt-7 rounded-[24px] border border-[#24251f]/8 bg-white/55 p-5"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">YOUR MOVE</p><p className="mt-2 text-lg font-semibold leading-6">{task.prompt}</p><p className="mt-3 text-xs leading-5 text-[#85867a]">{task.hint}</p></div><Button onClick={() => setScreen('move')} className="mt-5 w-full">Make my move</Button></div></main>;
 
-      {screen === 'result' && <motion.section key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-screen bg-[#24251f] px-5 pb-12 pt-8 text-[#f7f2e8]"> <div className="mx-auto max-w-xl"> <header className="flex items-center justify-between"><button onClick={()=>go('home')} className="grid h-10 w-10 place-items-center rounded-full border border-white/10"><ArrowLeft size={18}/></button><span className="text-xs font-bold uppercase tracking-[.2em] text-white/45">The Reveal</span><div className="w-10"/></header><div className="pt-16"><p className="text-xs font-bold uppercase tracking-[.2em] text-white/45">5 people. One Pulse.</p><h1 className="mt-3 text-[52px] font-semibold leading-[.92] tracking-[-.055em]">Look what happened.</h1><p className="mt-5 max-w-md text-lg leading-7 text-white/55">Nobody had the whole picture. The chain made the final state.</p></div><div className="mt-10 space-y-3">{payloadsOf(relay).map((p,i)=><div key={i} className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[.05]"><div className="flex items-center justify-between px-5 py-4"><span className="text-xs font-bold uppercase tracking-[.16em] text-white/45">Move {i+1}</span>{p.action && <span className="text-xs text-white/45">{p.action}</span>}</div>{imageOf(p)?<div className="aspect-[4/3]"><Photo src={imageOf(p)}/></div>:<div className="px-5 pb-6 text-xl leading-8">{textOf(p) || p.state?.summary}</div>}</div>)}</div><div className="mt-8 rounded-[28px] border border-white/10 bg-white/[.05] p-6"><p className="text-xs font-bold uppercase tracking-[.18em] text-white/45">Your trace</p><p className="mt-2 text-2xl font-semibold">YOU WERE HERE.</p><p className="mt-2 text-sm leading-6 text-white/55">Your move is one link in the chain.</p></div><div className="mt-8 flex gap-3"><Button onClick={()=>go('home')} icon={RotateCcw}>Start again</Button><Button secondary onClick={claimPulse} icon={ArrowRight} className="border-white/15 bg-white/10 text-white">Another Pulse</Button></div></div></motion.section>}
+  if (screen === 'move') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center justify-between"><Back onClick={() => setScreen('trace')}/><span className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">MOVE {count + 1}</span><span className="text-xs font-bold">{count + 1}/{MAX_STEPS}</span></div><div className="mt-7"><Progress count={count}/><div className="mt-9"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">{actionWords[task.actionType] || 'MOVE'}</p><h1 className="mt-2 text-4xl font-bold leading-[.98] tracking-[-.05em]">{task.title}</h1><p className="mt-4 text-base leading-6 text-[#5e5f57]">{task.prompt}</p><div className="mt-7">{inputUI()}</div><Button onClick={submitMove} disabled={busy} className="mt-5 w-full">{busy ? 'Passing it on…' : 'Pass it on'}</Button>{error && <p className="mt-4 text-center text-xs text-[#6c6d64]">{error}</p>}</div></div></main>;
 
-      {screen === 'history' && <motion.section key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto min-h-screen max-w-xl px-5 pb-12 pt-8">{header('Activity')}<p className="text-xs font-bold uppercase tracking-[.2em] text-[#85867a]">Your traces</p><h1 className="mt-2 text-[46px] font-semibold leading-[.95] tracking-[-.05em]">Where you changed things.</h1><div className="mt-8 space-y-3">{history.length===0?<div className="rounded-[30px] border border-[#24251f]/8 bg-white/45 p-6 text-[#77786c]">Your first trace will appear here.</div>:history.map(entry=><button key={entry.id} onClick={()=>resume(entry)} className="flex w-full items-center justify-between rounded-[26px] border border-[#24251f]/8 bg-white/45 p-5 text-left"><div><p className="text-sm font-semibold">{entry.status==='complete'?'Completed Pulse':'Pulse in motion'}</p><p className="mt-1 text-xs text-[#85867a]">{entry.stepCount} / {MAX_STEPS} moves · {entry.role==='creator'?'Started':'Joined'}</p></div><ArrowRight size={17}/></button>)}</div>{error && <p className="mt-4 text-sm">{error}</p>}<div className="mt-8"><Button secondary onClick={()=>go('home')} icon={ArrowLeft}>Back</Button></div></motion.section>}
-    </AnimatePresence>
-  </main>;
+  if (screen === 'waiting') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center justify-between"><Back onClick={() => go('home')}/><span className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">PULSE IS MOVING</span><span className="text-xs font-bold">{count}/{MAX_STEPS}</span></div><div className="flex min-h-[72vh] flex-col justify-center"><div className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#24251f]"/><h1 className="mt-7 text-5xl font-bold leading-[.93] tracking-[-.06em]">Your move<br/>is out there.</h1><p className="mt-5 max-w-sm text-base leading-6 text-[#85867a]">Someone else gets what you left behind. Come back when the chain reaches the reveal.</p><div className="mt-9"><Progress count={count}/><p className="mt-3 text-xs text-[#85867a]">{count} of {MAX_STEPS} moves complete</p></div><Button onClick={() => claimPulse()} className="mt-8 w-full" secondary icon={Compass}>Find another Pulse</Button><button onClick={() => setShowChain(v => !v)} className="mt-4 text-xs font-bold underline underline-offset-4">{showChain ? 'Hide chain' : 'See what you left'}</button>{showChain && <div className="mt-5 space-y-3">{moves.map((p,i)=><TraceCard key={i} payload={p} index={i+1} highlight={role !== 'creator' && i === moves.length - 1}/>)}</div>}</div></main>;
+
+  if (screen === 'result') return <main className={`${pageClass} bg-[#24251f] text-[#f8f3e9]`}><div className="flex items-center justify-between"><button onClick={() => go('home')} className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/5"><ArrowLeft size={18}/></button><span className="text-[10px] font-bold tracking-[.22em] text-white/50">THE REVEAL</span><button onClick={() => setToast('Reveal link ready to share.')} className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/5"><Share2 size={17}/></button></div><div className="mt-12"><p className="text-[11px] font-bold tracking-[.22em] text-white/45">LOOK WHAT HAPPENED</p><h1 className="mt-3 text-5xl font-bold leading-[.9] tracking-[-.06em]">Nobody knew<br/>where this would end.</h1><div className="mt-10 space-y-3">{moves.map((p,i)=><TraceCard key={i} payload={p} index={i+1} highlight={role !== 'creator' && i === moves.length - 1}/>)}</div>{payload && <div className="mt-3 overflow-hidden rounded-[30px] bg-[#f8f3e9] text-[#24251f]"><div className="aspect-[4/3] overflow-hidden"><Photo src={imageOf(payload)}/></div><div className="p-6"><p className="text-[10px] font-bold tracking-[.22em] text-[#85867a]">FINAL STATE</p><p className="mt-2 text-2xl font-bold leading-7">{textOf(payload) || 'The chain reached its final state.'}</p></div></div>}<div className="mt-7 rounded-[28px] border border-white/10 p-6"><p className="text-[10px] font-bold tracking-[.22em] text-white/45">YOUR TRACE</p><p className="mt-2 text-xl font-semibold">{role === 'creator' ? 'You started this.' : 'YOU WERE HERE.'}</p><p className="mt-2 text-sm leading-5 text-white/55">One small action became part of the final result.</p></div><Button onClick={() => go('home')} className="mt-5 w-full bg-[#f8f3e9] text-[#24251f]">Find another Pulse</Button></div>{toast && <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-white px-5 py-3 text-xs font-bold text-[#24251f] shadow-xl">{toast}</div>}</main>;
+
+  if (screen === 'history') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center gap-3"><Back onClick={() => go('home')}/><div><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">ACTIVITY</p><h1 className="text-xl font-bold">Your traces</h1></div></div><div className="mt-9">{history.length === 0 ? <div className="rounded-[28px] bg-white/55 p-7"><p className="text-2xl font-bold">Nothing here yet.</p><p className="mt-2 text-sm leading-6 text-[#85867a]">Your first move will leave a trace.</p><Button onClick={claimPulse} className="mt-6">Find a Pulse</Button></div> : <div className="space-y-3">{history.map((entry,i)=><button key={`${entry.id}-${i}`} onClick={() => resume(entry)} className="w-full rounded-[24px] border border-[#24251f]/8 bg-white/55 p-5 text-left"><div className="flex items-center justify-between"><span className="text-[10px] font-bold tracking-[.18em] text-[#85867a]">{entry.role === 'creator' ? 'STARTED' : 'JOINED'}</span><span className="text-xs text-[#85867a]">{entry.stepCount}/{MAX_STEPS}</span></div><p className="mt-2 text-sm font-semibold">{entry.status === 'complete' ? 'Reveal ready' : 'Still moving'}</p></button>)}</div>}</div><BottomNav screen={screen} go={go}/></main>;
+
+  if (screen === 'you') return <main className={pageClass}>{hiddenInputs}<div className="flex items-center justify-between"><Back onClick={() => go('home')}/><button onClick={() => setToast('Profile settings coming later.')} className="text-xs font-bold">Settings</button></div><div className="mt-12"><div className="grid h-20 w-20 place-items-center rounded-full bg-[#24251f] text-[#f8f3e9]"><Users size={28}/></div><h1 className="mt-5 text-4xl font-bold tracking-[-.05em]">You</h1><div className="mt-8 grid grid-cols-3 gap-2"><div className="rounded-[22px] bg-white/55 p-4"><p className="text-2xl font-bold">{history.filter(x=>x.role==='creator').length}</p><p className="mt-1 text-[10px] font-bold tracking-[.15em] text-[#85867a]">STARTED</p></div><div className="rounded-[22px] bg-white/55 p-4"><p className="text-2xl font-bold">{history.filter(x=>x.role!=='creator').length}</p><p className="mt-1 text-[10px] font-bold tracking-[.15em] text-[#85867a]">JOINED</p></div><div className="rounded-[22px] bg-white/55 p-4"><p className="text-2xl font-bold">{history.filter(x=>x.status==='complete').length}</p><p className="mt-1 text-[10px] font-bold tracking-[.15em] text-[#85867a]">REVEALS</p></div></div><div className="mt-8 rounded-[28px] bg-white/55 p-6"><p className="text-[10px] font-bold tracking-[.2em] text-[#85867a]">YOUR TRACE</p><p className="mt-2 text-lg font-semibold">Every Pulse keeps a little piece of what you did.</p></div></div><BottomNav screen={screen} go={go}/></main>;
+
+  return null;
 }
