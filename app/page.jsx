@@ -349,7 +349,7 @@ export default function Page() {
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileError, setProfileError] = useState('');
 
-  const loadFeed = useCallback(async () => {
+  const loadFeed = useCallback(async (actorOverride = actor) => {
     setLoading(true); setError('');
     try {
       const { data: pulseData, error: pulseError } = await supabase.from('pulses').select('*').neq('status', 'hidden').order('updated_at', { ascending: false }).limit(60);
@@ -370,7 +370,7 @@ export default function Page() {
       for (const row of reactionData) {
         const current = stats[row.pulse_id] || { count: 0, liked: false };
         current.count += 1;
-        if (row.actor_id === actor) current.liked = true;
+        if (row.actor_id === actorOverride) current.liked = true;
         stats[row.pulse_id] = current;
       }
       setPulses(pulseData || []); setGroupedMoves(grouped); setReactions(stats);
@@ -389,6 +389,7 @@ export default function Page() {
     const id = actorId(); setActor(id);
     if (typeof window !== 'undefined' && !window.localStorage.getItem(ONBOARDING_KEY)) setShowOnboarding(true);
     loadProfile(id);
+    loadFeed(id);
     const channel = supabase.channel('pulse-social-feed').on('postgres_changes', { event: '*', schema: 'public', table: 'pulses' }, () => loadFeed()).on('postgres_changes', { event: '*', schema: 'public', table: 'pulse_moves' }, () => loadFeed()).on('postgres_changes', { event: '*', schema: 'public', table: 'pulse_reactions' }, () => loadFeed()).subscribe();
     const onSearch = () => setScreen('search');
     const onActivity = () => setScreen('activity');
