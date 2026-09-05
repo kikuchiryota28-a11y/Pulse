@@ -1,0 +1,37 @@
+name: Fix Pulse feed bootstrap
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix initial feed bootstrap') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair initial feed load
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/page.jsx')
+          s = p.read_text()
+          old = "  const loadFeed = useCallback(async () => {"
+          new = "  const loadFeed = useCallback(async (actorOverride = actor) => {"
+          s = s.replace(old, new, 1)
+          s = s.replace("if (row.actor_id === actor) current.liked = true;", "if (row.actor_id === actorOverride) current.liked = true;", 1)
+          marker = "    loadProfile(id);\n"
+          replacement = "    loadProfile(id);\n    loadFeed(id);\n"
+          if marker not in s:
+              raise SystemExit('feed bootstrap marker not found')
+          s = s.replace(marker, replacement, 1)
+          p.write_text(s)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.jsx
+          git diff --cached --quiet || git commit -m 'Fix initial feed bootstrap'
+          git push
