@@ -16,6 +16,12 @@ function hideLegacySheet(sheet) {
   }
 }
 
+function closeLegacySheet() {
+  const sheet = document.querySelector('.sheet[aria-label="Make a move"]');
+  const closeButton = sheet?.querySelector('button[aria-label="Close"]');
+  if (closeButton) closeButton.click();
+}
+
 export default function MoveExperienceBridge() {
   const [open, setOpen] = useState(false);
   const [pulse, setPulse] = useState(null);
@@ -71,22 +77,19 @@ export default function MoveExperienceBridge() {
   }, []);
 
   const close = () => {
+    closeLegacySheet();
     setOpen(false);
     setPulse(null);
     setMoves([]);
     legacyRef.current = null;
-    document.querySelectorAll('[data-pulse-legacy-hidden="1"]').forEach((node) => {
-      node.style.display = '';
-      delete node.dataset.pulseLegacyHidden;
-    });
-    document.querySelectorAll('[data-pulse-bridge="1"]').forEach((node) => {
-      node.style.display = '';
-      delete node.dataset.pulseBridge;
-    });
   };
 
   const submitted = () => {
-    close();
+    closeLegacySheet();
+    setOpen(false);
+    setPulse(null);
+    setMoves([]);
+    legacyRef.current = null;
     window.location.reload();
   };
 
