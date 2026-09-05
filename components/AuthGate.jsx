@@ -17,6 +17,12 @@ function promoteIdentity(userId) {
   window.localStorage.setItem(ONBOARDING_KEY, '1');
 }
 
+function authErrorFromUrl() {
+  if (typeof window === 'undefined') return '';
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return params.get('error_description') || params.get('error') || '';
+}
+
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(null);
   const [ready, setReady] = useState(false);
@@ -40,6 +46,12 @@ export default function AuthGate({ children }) {
 
   useEffect(() => {
     let mounted = true;
+    const urlError = authErrorFromUrl();
+    if (urlError) {
+      setError(decodeURIComponent(urlError.replace(/\+/g, ' ')));
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+    }
+
     const finish = async (nextSession) => {
       try {
         if (nextSession?.user) await claimCurrentActor(nextSession.user);
@@ -51,10 +63,15 @@ export default function AuthGate({ children }) {
       }
     };
 
-    supabase.auth.getSession().then(({ data }) => finish(data.session || null));
+    supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (sessionError) setError(sessionError.message);
+      void finish(data?.session || null);
+    });
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       void finish(nextSession || null);
     });
+
     return () => {
       mounted = false;
       listener.subscription.unsubscribe();
@@ -65,7 +82,7 @@ export default function AuthGate({ children }) {
     setBusy(true); setError(''); setMessage('');
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}/` },
     });
     if (signInError) setError(signInError.message);
     setBusy(false);
@@ -78,7 +95,10 @@ export default function AuthGate({ children }) {
     setBusy(true); setError(''); setMessage('');
     const { error: signInError } = await supabase.auth.signInWithOtp({
       email: value,
-      options: { emailRedirectTo: window.location.origin, shouldCreateUser: true },
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+        shouldCreateUser: true,
+      },
     });
     if (signInError) setError(signInError.message);
     else setMessage('Check your email. We sent you a secure sign-in link.');
