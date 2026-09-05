@@ -392,6 +392,7 @@ export default function Page() {
     loadFeed(id);
     loadFeed(id);
     loadFeed(id);
+    loadFeed(id);
     const channel = supabase.channel('pulse-social-feed').on('postgres_changes', { event: '*', schema: 'public', table: 'pulses' }, () => loadFeed()).on('postgres_changes', { event: '*', schema: 'public', table: 'pulse_moves' }, () => loadFeed()).on('postgres_changes', { event: '*', schema: 'public', table: 'pulse_reactions' }, () => loadFeed()).subscribe();
     const onSearch = () => setScreen('search');
     const onActivity = () => setScreen('activity');
