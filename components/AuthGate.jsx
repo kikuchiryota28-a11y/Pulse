@@ -5,6 +5,14 @@ import { supabase } from '../lib/supabase';
 
 const ACTOR_KEY = 'pulse:social:actor';
 const ONBOARDING_KEY = 'pulse:social:onboarded';
+const CANONICAL_SITE_URL = 'https://pulse-krml1.vercel.app';
+
+function authRedirectUrl() {
+  if (typeof window === 'undefined') return CANONICAL_SITE_URL;
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+  return CANONICAL_SITE_URL;
+}
 
 function currentAnonymousActor() {
   if (typeof window === 'undefined') return '';
@@ -48,7 +56,11 @@ export default function AuthGate({ children }) {
     let mounted = true;
     const urlError = authErrorFromUrl();
     if (urlError) {
-      setError(decodeURIComponent(urlError.replace(/\+/g, ' ')));
+      try {
+        setError(decodeURIComponent(urlError.replace(/\+/g, ' ')));
+      } catch {
+        setError(urlError);
+      }
       window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
     }
 
@@ -79,10 +91,12 @@ export default function AuthGate({ children }) {
   }, []);
 
   const signInGoogle = async () => {
-    setBusy(true); setError(''); setMessage('');
+    setBusy(true);
+    setError('');
+    setMessage('');
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/` },
+      options: { redirectTo: authRedirectUrl() },
     });
     if (signInError) setError(signInError.message);
     setBusy(false);
@@ -91,12 +105,17 @@ export default function AuthGate({ children }) {
   const signInEmail = async (event) => {
     event.preventDefault();
     const value = email.trim();
-    if (!value) { setError('Enter your email address.'); return; }
-    setBusy(true); setError(''); setMessage('');
+    if (!value) {
+      setError('Enter your email address.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    setMessage('');
     const { error: signInError } = await supabase.auth.signInWithOtp({
       email: value,
       options: {
-        emailRedirectTo: `${window.location.origin}/`,
+        emailRedirectTo: authRedirectUrl(),
         shouldCreateUser: true,
       },
     });
