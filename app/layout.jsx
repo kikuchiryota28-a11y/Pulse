@@ -1,5 +1,6 @@
 import "../src/pulse-social.css";
 import PulseMotion from "./PulseMotion";
+import MoveExperienceBridge from "../components/MoveExperienceBridge";
 
 export const metadata = {
   title: "Pulse — Post. Let people change it.",
@@ -11,6 +12,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <PulseMotion>{children}</PulseMotion>
+        <MoveExperienceBridge />
       </body>
     </html>
   );
