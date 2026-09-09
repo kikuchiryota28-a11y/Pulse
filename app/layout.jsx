@@ -4,6 +4,7 @@ import "../src/pulse-art-direction-v2.css";
 import "../src/pulse-reveal-v2.css";
 import "../src/pulse-playful-spatial.css";
 import "../src/pulse-ui-v3.css";
+import "../src/mobile-overflow-fix.css";
 import PulseMotion from "./PulseMotion";
 import MoveExperienceBridge from "../components/MoveExperienceBridge";
 import AuthGate from "../components/AuthGate";
