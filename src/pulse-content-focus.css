@@ -1,0 +1,47 @@
+/* Pulse content-first surface: fewer controls, stronger content. */
+.pulse-page{padding-top:14px!important}
+.pulse-page-header{margin:0 0 16px!important}
+.pulse-page-header>div:first-child{max-width:none!important}
+.pulse-page-title,.pulse-page-header>div:last-child,.pulse-segment,.pulse-home-toolbar{display:none!important}
+.pulse-page-kicker{font-size:8px!important;letter-spacing:.22em!important;color:#6f6b64!important}
+.pulse-grid-3{gap:18px!important}
+.pulse-card-link .precision-card{min-height:390px!important;border-radius:24px!important}
+.pulse-card-visual{height:210px!important}
+.pulse-card-overlay{padding:20px!important}
+.pulse-card-title-xl{font-size:clamp(26px,3vw,38px)!important;max-width:92%!important}
+.pulse-card-state{margin-top:14px!important}
+.pulse-card-state p{-webkit-line-clamp:2!important;font-size:13px!important}
+.pulse-card-join{margin-top:14px!important;padding-top:10px!important;border-top:0!important}
+.pulse-card-link .precision-button{min-height:42px!important;padding-inline:15px!important}
+.pulse-card-time{opacity:.72}
+
+/* Detail: remove explanatory chrome; leave the story and the action. */
+.pulse-v1-detail-intro{margin-bottom:18px!important}
+.pulse-v1-detail-intro p,.pulse-v1-detail-meta{display:none!important}
+.pulse-v1-detail-intro .pulse-move-chip{margin-bottom:8px!important}
+.pulse-v1-detail-grid{gap:18px!important}
+.pulse-v1-state-panel{padding:18px!important}
+.pulse-v1-trace-panel{padding:2px 4px!important}
+.pulse-v1-action-panel{padding:18px!important}
+.pulse-v1-action-panel>p{display:none!important}
+.pulse-v1-action-panel h2{margin-top:6px!important}
+.pulse-v1-move{margin-top:14px!important;min-height:60px!important}
+
+@media (max-width:900px){
+  .pulse-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media (max-width:640px){
+  .pulse-page{padding:12px 12px 124px!important}
+  .pulse-page-header{margin-bottom:12px!important}
+  .pulse-grid-3{grid-template-columns:1fr!important;gap:14px!important}
+  .pulse-card-link .precision-card{min-height:360px!important;border-radius:22px!important}
+  .pulse-card-visual{height:205px!important}
+  .pulse-card-overlay{padding:17px!important}
+  .pulse-card-title-xl{font-size:29px!important;max-width:94%!important}
+  .pulse-card-state{margin-top:12px!important}
+  .pulse-card-state p{font-size:12px!important}
+  .pulse-v1-detail{padding:14px 12px 132px!important}
+  .pulse-v1-detail-intro{margin:0 0 14px!important}
+  .pulse-v1-detail-intro h1{font-size:42px!important}
+  .pulse-v1-state-panel>p{font-size:31px!important}
+}
