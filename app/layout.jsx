@@ -1,5 +1,4 @@
 import "../src/pulse-social.css";
-import "../src/pulse-detail-v1.css";
 import PulseMotion from "./PulseMotion";
 import MoveExperienceBridge from "../components/MoveExperienceBridge";
 import AuthGate from "../components/AuthGate";

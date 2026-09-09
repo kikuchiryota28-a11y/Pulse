@@ -1,8 +1,8 @@
 'use client';
 
 import { use, useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Heart, Share2, Users, Zap, AlertTriangle, RefreshCw, X, RotateCcw, GitBranch } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, ArrowRight, Heart, Share2, Users, Zap, AlertTriangle, RefreshCw, X, RotateCcw } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 import {
@@ -18,59 +18,41 @@ import {
   cleanText,
 } from '../../../lib/pulse-social';
 
-function statusLabel(pulse) {
-  if (!pulse) return 'MOVING';
-  if (pulse.status !== 'active') return 'REVEALED';
-  return pulse.move_count > 0 ? 'SOMEONE IS MOVING' : 'WAITING FOR YOU';
-}
-
 function Media({ src, alt }) {
-  if (!src) {
-    return (
-      <div className="pulse-state-media-placeholder" aria-hidden="true">
-        <span>THE PULSE IS WAITING</span>
-      </div>
-    );
-  }
-  return <img src={src} alt={alt || 'Pulse'} className="pulse-state-media" />;
+  if (!src) return <div className="h-full min-h-[280px] rounded-[24px] bg-black/[.035]" />;
+  return <img src={src} alt={alt || 'Pulse'} className="h-full min-h-[280px] w-full object-cover" />;
 }
 
 function MoveEditor({ director, draft, setDraft, onSubmit, busy, error, onClose }) {
-  const reduceMotion = useReducedMotion();
   const choices = director?.choices || [];
   const inputType = director?.inputType || 'text';
 
   return (
-    <div className="pulse-focus-backdrop" onClick={onClose} role="presentation">
-      <motion.div
-        initial={reduceMotion ? false : { opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduceMotion ? 0 : 0.24 }}
-        className="pulse-move-sheet"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="move-sheet-title"
-      >
-        <div className="pulse-sheet-handle" />
-        <div className="pulse-sheet-top">
+    <div className="fixed inset-0 z-40 bg-black/30 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="mx-auto mt-auto max-w-[760px] rounded-[28px] bg-[#f4f1e9] p-5 shadow-2xl sm:mt-[10vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <div className="pulse-eyebrow">YOUR MOVE</div>
-            <h2 id="move-sheet-title">{director?.title || 'Change what happens next.'}</h2>
+            <div className="text-[10px] font-bold uppercase tracking-[.15em] text-black/40">YOUR MOVE</div>
+            <div className="mt-1 text-xl font-semibold tracking-[-.03em]">{director?.title || 'Change what happens next.'}</div>
           </div>
-          <button type="button" onClick={onClose} className="pulse-icon-button" aria-label="Close move interface">
-            <X size={17} />
+          <button onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white" aria-label="Close">
+            <X size={16} />
           </button>
         </div>
-
-        <p className="pulse-sheet-prompt">{director?.prompt || 'Add something that changes the current state.'}</p>
+        <p className="mt-3 max-w-[620px] text-sm leading-6 text-black/55">{director?.prompt || 'Add something that changes the current state.'}</p>
 
         {inputType === 'choice' && choices.length > 0 ? (
-          <div className="pulse-choice-list">
+          <div className="mt-5 grid gap-2">
             {choices.map((choice) => (
-              <button key={choice} type="button" onClick={() => onSubmit(choice)} disabled={busy} className="pulse-choice-row">
+              <button
+                key={choice}
+                type="button"
+                onClick={() => onSubmit(choice)}
+                disabled={busy}
+                className="flex items-center justify-between rounded-[18px] border border-black/10 bg-white px-4 py-4 text-left text-sm font-semibold transition hover:-translate-y-[1px] disabled:opacity-50"
+              >
                 <span>{choice}</span>
-                <ArrowRight size={17} />
+                <ArrowRight size={15} />
               </button>
             ))}
           </div>
@@ -81,144 +63,66 @@ function MoveEditor({ director, draft, setDraft, onSubmit, busy, error, onClose 
               onChange={(e) => setDraft(e.target.value)}
               maxLength={500}
               autoFocus
-              placeholder={director?.hint || 'What do you notice, add, or change?'}
-              className="pulse-move-textarea"
+              placeholder={director?.hint || 'What do you add, change, or notice?'}
+              className="mt-5 min-h-[180px] w-full resize-none rounded-[22px] border border-black/10 bg-white p-4 text-sm outline-none focus:border-black/30"
               disabled={busy}
-              aria-label="Your move"
             />
-            <div className="pulse-sheet-actions">
-              <span className="pulse-character-count">{draft.length}/500</span>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-[11px] text-black/40">{draft.length}/500</span>
               <button
-                type="button"
                 disabled={!draft.trim() || busy}
                 onClick={() => onSubmit(draft)}
-                className="pulse-move-primary"
+                className="flex items-center gap-2 rounded-full bg-black px-5 py-3 text-xs font-bold text-white disabled:opacity-40"
               >
-                {busy ? 'CHANGING…' : 'MOVE'}
-                {!busy && <ArrowRight size={16} />}
+                {busy ? 'Moving…' : 'Move'} <ArrowRight size={14} />
               </button>
             </div>
           </>
         )}
-        {error && <p className="pulse-inline-error" role="alert">{error}</p>}
-      </motion.div>
+        {error && <p className="mt-3 text-xs font-medium text-red-600">{error}</p>}
+      </div>
     </div>
   );
 }
 
-function Consequence({ result, nextPrompt, onContinue }) {
-  const reduceMotion = useReducedMotion();
+function Consequence({ result, onContinue }) {
   if (!result) return null;
-
   return (
     <AnimatePresence>
       <motion.div
-        initial={reduceMotion ? false : { opacity: 0 }}
+        initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={reduceMotion ? undefined : { opacity: 0 }}
-        className="pulse-consequence-overlay"
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 bg-[#20221d]/92 px-5 py-8 text-[#f4f1e9] backdrop-blur-xl"
       >
-        <div className="pulse-consequence-inner">
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: reduceMotion ? 0 : 0.06, duration: reduceMotion ? 0 : 0.3 }}
-          >
-            <div className="pulse-eyebrow pulse-eyebrow-light">CONSEQUENCE</div>
-            <h2>YOU MOVED.</h2>
-            <p className="pulse-consequence-lead">Your action entered the Pulse. Now look at what changed.</p>
+        <div className="mx-auto flex min-h-full max-w-[760px] flex-col justify-center">
+          <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08 }}>
+            <div className="text-[10px] font-bold uppercase tracking-[.18em] text-white/45">CONSEQUENCE</div>
+            <h2 className="mt-3 text-[clamp(2.5rem,10vw,5rem)] font-semibold leading-[.9] tracking-[-.06em]">YOU MOVED.</h2>
           </motion.div>
 
-          <div className="pulse-causality-stack">
-            <motion.section
-              initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: reduceMotion ? 0 : 0.16, duration: reduceMotion ? 0 : 0.28 }}
-              className="pulse-causality-step"
-            >
-              <div className="pulse-causality-kicker">YOUR MOVE</div>
-              <p>{contentPreview(contentFromMove(result), 300)}</p>
-            </motion.section>
+          <motion.div initial={{ opacity: 0, scale: .98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: .22 }} className="mt-10 rounded-[28px] bg-white/[.08] p-6 ring-1 ring-white/10">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.14em] text-white/45"><span>YOUR MOVE</span><span>→</span><span>PULSE CHANGED</span></div>
+            <p className="mt-4 text-xl leading-8">{contentPreview(contentFromMove(result), 260)}</p>
+          </motion.div>
 
-            <div className="pulse-causality-line" aria-hidden="true" />
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .38 }} className="mt-4 rounded-[28px] border border-white/10 bg-white/[.04] p-6">
+            <div className="text-[10px] font-bold uppercase tracking-[.16em] text-white/40">NEW STATE</div>
+            <p className="mt-3 text-lg leading-8 text-white/85">{result.state_after?.summary || 'The Pulse now contains your move.'}</p>
+          </motion.div>
 
-            <motion.section
-              initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: reduceMotion ? 0 : 0.28, duration: reduceMotion ? 0 : 0.28 }}
-              className="pulse-causality-step pulse-causality-state"
-            >
-              <div className="pulse-causality-kicker">STATE CHANGED</div>
-              <p>{result.state_after?.summary || 'The Pulse now contains your move.'}</p>
-            </motion.section>
-
-            <div className="pulse-causality-line" aria-hidden="true" />
-
-            <motion.section
-              initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: reduceMotion ? 0 : 0.40, duration: reduceMotion ? 0 : 0.28 }}
-              className="pulse-causality-step pulse-causality-next"
-            >
-              <div className="pulse-causality-kicker">NEXT PERSON</div>
-              <p>{nextPrompt || 'Someone else can move this Pulse now.'}</p>
-            </motion.section>
-          </div>
-
-          <motion.button
-            type="button"
-            onClick={onContinue}
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: reduceMotion ? 0 : 0.54, duration: reduceMotion ? 0 : 0.26 }}
-            className="pulse-consequence-continue"
-          >
-            SEE THE NEW STATE <ArrowRight size={16} />
-          </motion.button>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .52 }} className="mt-5 flex items-center justify-between gap-4 text-sm">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[.16em] text-white/35">NEXT PERSON</div>
+              <div className="mt-1 font-semibold text-white/85">Someone else can move this Pulse now.</div>
+            </div>
+            <button onClick={onContinue} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#f4f1e9] text-[#20221d]" aria-label="Continue">
+              <ArrowRight size={18} />
+            </button>
+          </motion.div>
         </div>
       </motion.div>
     </AnimatePresence>
-  );
-}
-
-function Trace({ seed, ordered, actor }) {
-  return (
-    <section className="pulse-section" aria-labelledby="trace-heading">
-      <div className="pulse-section-heading">
-        <div>
-          <div className="pulse-eyebrow" id="trace-heading">TRACE</div>
-          <p>How this Pulse arrived here.</p>
-        </div>
-        {ordered.length > 0 && <span className="pulse-section-count">{ordered.length} MOVES</span>}
-      </div>
-
-      <div className="pulse-trace-list">
-        <div className="pulse-trace-item">
-          <div className="pulse-trace-node">00</div>
-          <div className="pulse-trace-content">
-            <div className="pulse-trace-label">SEED</div>
-            <p>{seed?.text || 'The starting state of this Pulse.'}</p>
-          </div>
-        </div>
-
-        {ordered.map((move, index) => (
-          <div className="pulse-trace-item" key={move.id}>
-            <div className="pulse-trace-rail" aria-hidden="true" />
-            <div className="pulse-trace-node">{String(index + 1).padStart(2, '0')}</div>
-            <div className={`pulse-trace-content ${move.actor_id === actor ? 'is-yours' : ''}`}>
-              <div className="pulse-trace-topline">
-                <span className="pulse-trace-label">MOVE {index + 1}</span>
-                <span className="pulse-trace-meta">{move.actor_id === actor ? 'YOU' : 'SOMEONE'} · {formatRelative(move.created_at)}</span>
-              </div>
-              <p>{contentPreview(contentFromMove(move), 250)}</p>
-              {mediaFromContent(contentFromMove(move)) && (
-                <img src={mediaFromContent(contentFromMove(move))} alt="Move result" className="pulse-trace-image" />
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -227,7 +131,6 @@ export default function PulseDeepLink({ params }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = routeParams?.id;
-  const reduceMotion = useReducedMotion();
   const [pulse, setPulse] = useState(null);
   const [moves, setMoves] = useState([]);
   const [actor, setActor] = useState('');
@@ -279,13 +182,10 @@ export default function PulseDeepLink({ params }) {
   const seed = pulse ? seedFromPulse(pulse) : null;
   const ordered = useMemo(() => [...moves].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)), [moves]);
   const current = ordered.at(-1) || null;
-  const currentState = pulse?.current_state || current?.state_after || null;
   const joined = ordered.some((m) => m.actor_id === actor);
   const isCreator = Boolean(pulse && pulse.creator_id === actor);
   const director = useMemo(() => pulse ? directorFor({ intent: pulse.intent, pulse, moves: ordered }) : null, [pulse, ordered]);
   const currentMedia = mediaFromContent(current?.content) || seed?.dataUrl;
-  const canMove = pulse?.status === 'active' && !joined && !isCreator;
-  const nextPrompt = director?.prompt || 'Someone else can continue from this new state.';
 
   const share = async () => {
     const url = window.location.href;
@@ -323,7 +223,7 @@ export default function PulseDeepLink({ params }) {
     setBusy(true);
     setMoveError('');
     try {
-      if (pulse.status !== 'active') throw new Error('This Pulse has already been revealed.');
+      if (pulse.status !== 'active') throw new Error('This Pulse is no longer accepting moves.');
       if (joined) throw new Error('You already changed this Pulse. Come back later to see what happened next.');
       if (!actor) throw new Error('Your Pulse identity is not ready yet.');
 
@@ -344,26 +244,17 @@ export default function PulseDeepLink({ params }) {
         p_expected_revision: Number(pulse.revision || 0),
       });
 
-      if (rpcError) {
-        const message = rpcError.message || '';
-        if (message.includes('changed before your move')) throw new Error('Someone moved while you were here.');
-        if (message.includes('cannot make the next move')) throw new Error('Someone else needs to make the next move.');
-        throw rpcError;
-      }
-      if (!move?.id) throw new Error('The move result could not be confirmed.');
+      if (rpcError) throw rpcError;
+      if (!move?.id) throw new Error('The Pulse changed, but the move result could not be confirmed.');
       setDraft('');
       setMoveOpen(false);
       setLastMoveResult(move);
       await load();
     } catch (e) {
       const message = e?.message || 'Could not save your move.';
-      if (message.includes('Someone moved while you were here')) {
+      if (message.toLowerCase().includes('changed before your move')) {
         await load();
-        setMoveError('Someone moved while you were here. The world changed — look at the new state.');
-      } else if (message.includes('Someone else needs')) {
-        setMoveError('YOU CREATED THIS PULSE. Someone else needs to make the next move.');
-      } else if (message.includes('already been revealed')) {
-        setMoveError('THIS PULSE HAS ALREADY BEEN REVEALED.');
+        setMoveError('Someone moved first. The Pulse has been updated — look at the new state and try again.');
       } else {
         setMoveError(message);
       }
@@ -372,161 +263,71 @@ export default function PulseDeepLink({ params }) {
     }
   };
 
-  if (loading) {
-    return (
-      <main className="pulse-detail-screen pulse-detail-loading">
-        <div className="pulse-detail-wrap">
-          <div className="pulse-detail-topbar"><div className="pulse-skeleton-pill"/><div className="pulse-skeleton-actions"/></div>
-          <div className="pulse-detail-grid">
-            <div className="pulse-skeleton-block pulse-skeleton-hero" />
-            <div className="pulse-skeleton-block pulse-skeleton-side" />
-          </div>
+  const continueAfterConsequence = async () => {
+    setLastMoveResult(null);
+    await load();
+  };
+
+  if (loading) return <main className="min-h-screen bg-[#f4f1e9] px-5 py-6"><div className="mx-auto max-w-[760px] animate-pulse space-y-4"><div className="h-10 w-24 rounded-full bg-black/[.05]"/><div className="h-[420px] rounded-[28px] bg-black/[.05]"/><div className="h-32 rounded-[24px] bg-black/[.05]"/></div></main>;
+
+  if (error || !pulse) return <main className="min-h-screen bg-[#f4f1e9] flex items-center justify-center px-6"><div className="w-full max-w-md rounded-[28px] bg-white p-7 shadow-sm"><AlertTriangle size={22}/><h1 className="mt-4 text-2xl font-semibold tracking-[-.03em]">Pulse unavailable</h1><p className="mt-2 text-sm text-black/55">{error || 'This Pulse could not be found.'}</p><div className="mt-6 flex gap-2"><button onClick={load} className="rounded-full bg-black px-5 py-3 text-sm font-semibold text-white flex items-center gap-2"><RefreshCw size={15}/> Retry</button><button onClick={() => router.push('/')} className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold">Back to Pulses</button></div></div></main>;
+
+  const canMove = pulse.status === 'active' && !joined && !isCreator;
+
+  return <main className="min-h-screen bg-[#f4f1e9] text-[#20221d]">
+    <div className="mx-auto max-w-[760px] px-4 pb-32 pt-4 sm:px-6">
+      <div className="mb-4 flex items-center justify-between">
+        <button onClick={() => router.back()} className="flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3 py-2 text-xs font-semibold backdrop-blur"><ArrowLeft size={15}/> Back</button>
+        <div className="flex gap-2">
+          <button onClick={like} aria-label="Like" className={`grid h-10 w-10 place-items-center rounded-full border border-black/10 bg-white ${liked ? 'text-red-500' : ''}`}><Heart size={17} fill={liked ? 'currentColor' : 'none'}/></button>
+          <button onClick={share} aria-label="Share" className="grid h-10 w-10 place-items-center rounded-full border border-black/10 bg-white"><Share2 size={17}/></button>
         </div>
-      </main>
-    );
-  }
-
-  if (error || !pulse) {
-    return (
-      <main className="pulse-detail-screen pulse-detail-error-screen">
-        <div className="pulse-error-panel">
-          <div className="pulse-error-mark"><AlertTriangle size={20} /></div>
-          <div className="pulse-eyebrow">PULSE UNAVAILABLE</div>
-          <h1>{error || 'This Pulse could not be found.'}</h1>
-          <div className="pulse-error-actions">
-            <button type="button" onClick={load} className="pulse-move-primary"><RefreshCw size={15} /> RETRY</button>
-            <button type="button" onClick={() => router.push('/')} className="pulse-secondary-button">BACK</button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main className="pulse-detail-screen">
-      <div className="pulse-detail-wrap">
-        <header className="pulse-detail-topbar">
-          <button type="button" onClick={() => router.back()} className="pulse-back-button"><ArrowLeft size={17} /> <span>BACK</span></button>
-          <div className="pulse-topbar-actions">
-            <button type="button" onClick={like} className={`pulse-icon-button ${liked ? 'is-liked' : ''}`} aria-label="Like Pulse">
-              <Heart size={17} fill={liked ? 'currentColor' : 'none'} />
-            </button>
-            <button type="button" onClick={share} className="pulse-icon-button" aria-label="Share Pulse"><Share2 size={17} /></button>
-          </div>
-        </header>
-
-        <div className="pulse-detail-grid">
-          <article className="pulse-state-stage">
-            <div className="pulse-state-stage-topline">
-              <div className="pulse-status"><span className="pulse-status-dot" />{statusLabel(pulse)}</div>
-              <span className="pulse-stage-revision">STATE {Number(pulse.revision || 0)}</span>
-            </div>
-
-            <div className="pulse-state-copy">
-              <div className="pulse-eyebrow">CURRENT STATE</div>
-              <h1>{currentState?.summary || seed?.text || 'A new world is waiting for a first move.'}</h1>
-              <p className="pulse-state-context">{pulse.title}</p>
-            </div>
-
-            <div className="pulse-state-media-wrap">
-              <Media src={currentMedia} alt={pulse.title} />
-            </div>
-
-            <div className="pulse-state-meta">
-              <div className="pulse-meta-item"><Users size={15} /><span>{participantCount(ordered)} PEOPLE</span></div>
-              <div className="pulse-meta-item"><Zap size={14} /><span>{ordered.length} MOVES</span></div>
-              <div className="pulse-meta-item"><span className="pulse-meta-creator">BY</span><span>{pulse.creator_id === actor ? 'YOU' : 'CREATOR'}</span></div>
-            </div>
-          </article>
-
-          <aside className="pulse-detail-rail">
-            <section className="pulse-move-panel" aria-labelledby="move-heading">
-              <div className="pulse-eyebrow" id="move-heading">YOUR MOVE</div>
-              {isCreator ? (
-                <>
-                  <h2>You started this.</h2>
-                  <p>Watch the world change, but let someone else make the next move.</p>
-                  <div className="pulse-locked-note">THE CREATOR CANNOT ADVANCE THEIR OWN PULSE.</div>
-                </>
-              ) : joined ? (
-                <>
-                  <h2>You were here.</h2>
-                  <p>Your move is now part of the story. Come back to see what happened after you.</p>
-                  <button type="button" onClick={load} className="pulse-secondary-wide"><RotateCcw size={15} /> SEE WHAT CHANGED</button>
-                </>
-              ) : pulse.status !== 'active' ? (
-                <>
-                  <h2>This Pulse is revealed.</h2>
-                  <p>The moving has stopped. Follow the trace to see how the world changed.</p>
-                </>
-              ) : (
-                <>
-                  <div className="pulse-move-prompt">{director?.prompt || 'Change what happens next.'}</div>
-                  <button type="button" onClick={() => setMoveOpen(true)} className="pulse-move-cta" disabled={!canMove}>
-                    <span>MOVE</span><ArrowRight size={18} />
-                  </button>
-                  <div className="pulse-move-hint">Your action becomes the next person's context.</div>
-                </>
-              )}
-            </section>
-
-            <section className="pulse-next-panel" aria-labelledby="next-heading">
-              <div className="pulse-eyebrow" id="next-heading">NEXT PERSON</div>
-              <p>{nextPrompt}</p>
-              <div className="pulse-next-arrow"><ArrowRight size={16} /></div>
-            </section>
-
-            {ordered.length > 1 && (
-              <div className="pulse-branch-note"><GitBranch size={15} /><span>{ordered.length - 1} previous path{ordered.length - 1 === 1 ? '' : 's'} in this Pulse</span></div>
-            )}
-          </aside>
-        </div>
-
-        <Trace seed={seed} ordered={ordered} actor={actor} />
-
-        <section className="pulse-return-card">
-          <div>
-            <div className="pulse-eyebrow">YOUR TRACE</div>
-            <h2>{joined ? 'Your action is still moving.' : 'A trace starts with one move.'}</h2>
-            <p>{joined ? 'Someone else can continue from where you left the world.' : 'Make a move, then come back later to see what it became.'}</p>
-          </div>
-          {joined ? (
-            <button type="button" onClick={load} className="pulse-return-button">REVISIT <ArrowRight size={16} /></button>
-          ) : canMove ? (
-            <button type="button" onClick={() => setMoveOpen(true)} className="pulse-return-button">MAKE YOUR MOVE <ArrowRight size={16} /></button>
-          ) : null}
-        </section>
       </div>
 
-      {canMove && (
-        <div className="pulse-mobile-move-bar">
-          <div>
-            <div className="pulse-eyebrow">YOUR MOVE</div>
-            <span>Change the current state.</span>
-          </div>
-          <button type="button" onClick={() => setMoveOpen(true)} className="pulse-move-primary">MOVE <ArrowRight size={16} /></button>
+      <motion.article initial={{opacity:0,y:14}} animate={{opacity:1,y:0}} className="overflow-hidden rounded-[30px] bg-white shadow-[0_20px_70px_rgba(0,0,0,.07)]">
+        <div className="aspect-[4/3] w-full"><Media src={currentMedia} alt={pulse.title}/></div>
+        <div className="p-6 sm:p-8">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[.14em] text-black/45"><span>{pulse.status === 'active' ? 'STILL MOVING' : 'COMPLETED'}</span><span>{formatRelative(pulse.updated_at)}</span></div>
+          <h1 className="mt-3 text-[clamp(2rem,6vw,3.5rem)] font-semibold leading-[.96] tracking-[-.055em]">{pulse.title}</h1>
+          <p className="mt-4 text-sm leading-6 text-black/55">{pulse.intent || 'Someone starts. Someone else changes it.'}</p>
+          <div className="mt-5 flex flex-wrap items-center gap-4 text-xs font-semibold text-black/50"><span className="inline-flex items-center gap-1.5"><Users size={14}/>{participantCount(ordered)} people moved</span><span className="inline-flex items-center gap-1.5"><Zap size={13}/>{ordered.length} moves</span></div>
         </div>
-      )}
+      </motion.article>
 
-      {moveOpen && canMove && (
-        <MoveEditor
-          director={director}
-          draft={draft}
-          setDraft={setDraft}
-          onSubmit={submitMove}
-          busy={busy}
-          error={moveError}
-          onClose={() => setMoveOpen(false)}
-        />
-      )}
+      <section className="mt-6 rounded-[26px] border border-black/10 bg-white/75 p-5 sm:p-6">
+        <div className="text-[10px] font-bold uppercase tracking-[.16em] text-black/40">THE MOVE BEFORE YOU</div>
+        <div className="mt-3 rounded-[20px] bg-black/[.035] p-4">
+          <p className="text-sm leading-6">{current ? contentPreview(contentFromMove(current), 220) : seed?.text || 'This Pulse is waiting for its first human move.'}</p>
+          <div className="mt-3 text-[10px] font-semibold uppercase tracking-[.12em] text-black/35">{current ? 'Someone moved' : 'Seed'}</div>
+        </div>
+        <div className="mt-5 flex items-center gap-3 text-black/25"><div className="h-px flex-1 bg-black/10"/><ArrowRight size={15}/><div className="h-px flex-1 bg-black/10"/></div>
+        <div className="mt-5 text-[10px] font-bold uppercase tracking-[.16em] text-black/40">CURRENT STATE</div>
+        <p className="mt-2 text-base leading-7 text-black/80">{current ? current.state_after?.summary || 'The Pulse changed.' : seed?.text || 'A new world is waiting for a first move.'}</p>
+      </section>
 
-      {lastMoveResult && (
-        <Consequence
-          result={lastMoveResult}
-          nextPrompt={nextPrompt}
-          onContinue={() => setLastMoveResult(null)}
-        />
-      )}
-    </main>
-  );
+      <section className="mt-8">
+        <div className="mb-3 flex items-center justify-between"><h2 className="text-xs font-bold uppercase tracking-[.14em] text-black/45">TRACE</h2><span className="text-xs text-black/40">{ordered.length} moves</span></div>
+        <div className="space-y-3">
+          <div className="rounded-[22px] border border-black/10 bg-white p-5"><div className="text-[10px] font-bold uppercase tracking-[.14em] text-black/40">START</div><p className="mt-2 text-sm leading-6">{seed?.text || 'The starting state of this Pulse.'}</p></div>
+          {ordered.map((move, i) => <motion.div key={move.id} initial={{opacity:0,x:10}} whileInView={{opacity:1,x:0}} viewport={{once:true}} className="rounded-[22px] border border-black/10 bg-white p-5"><div className="flex items-center justify-between gap-3"><span className="text-[10px] font-bold uppercase tracking-[.14em] text-black/40">MOVE {i + 1}</span><span className="text-[9px] font-bold uppercase tracking-[.12em] text-black/35">{move.action_type}</span></div><p className="mt-2 text-sm leading-6">{contentPreview(contentFromMove(move),240)}</p>{mediaFromContent(contentFromMove(move)) && <img src={mediaFromContent(contentFromMove(move))} alt="Move result" className="mt-3 max-h-[340px] w-full rounded-2xl object-cover"/>}<div className="mt-3 text-[10px] font-semibold text-black/35">{move.actor_id === actor ? 'YOU' : 'SOMEONE'} · {formatRelative(move.created_at)}</div></motion.div>)}
+        </div>
+      </section>
+
+      <section className="mt-8 rounded-[24px] border border-black/10 bg-white/65 p-5">
+        {isCreator ? (
+          <div><div className="text-[10px] font-bold uppercase tracking-[.16em] text-black/40">CREATOR</div><p className="mt-2 text-sm leading-6 text-black/65">You started this Pulse. You can watch it change, but you cannot make the next move yourself.</p></div>
+        ) : joined ? (
+          <div><div className="text-[10px] font-bold uppercase tracking-[.16em] text-black/40">YOUR TRACE</div><p className="mt-2 text-sm leading-6 text-black/65">You already moved this Pulse. Come back later to see what happened after you.</p><button onClick={load} className="mt-4 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold"><RotateCcw size={14}/> See what changed</button></div>
+        ) : pulse.status !== 'active' ? (
+          <div><div className="text-[10px] font-bold uppercase tracking-[.16em] text-black/40">COMPLETED</div><p className="mt-2 text-sm leading-6 text-black/65">This Pulse has stopped moving. Follow the chain above to see how it got here.</p></div>
+        ) : (
+          <div><div className="text-[10px] font-bold uppercase tracking-[.16em] text-black/40">YOUR MOVE</div><p className="mt-2 text-sm leading-6 text-black/65">{director?.prompt || 'Change what happens next.'}</p><button onClick={() => setMoveOpen(true)} disabled={!canMove} className="mt-4 flex w-full items-center justify-between rounded-[18px] bg-black px-4 py-4 text-sm font-semibold text-white disabled:opacity-40"><span>Make the next move</span><ArrowRight size={16}/></button></div>
+        )}
+      </section>
+    </div>
+
+    {canMove && <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/10 bg-[#f4f1e9]/95 p-3 backdrop-blur-xl"><div className="mx-auto flex max-w-[760px] items-center justify-between gap-3"><div><div className="text-sm font-semibold">Change this Pulse.</div><div className="text-[11px] text-black/45">Your move becomes the next person's context.</div></div><button onClick={() => setMoveOpen(true)} className="flex items-center gap-2 rounded-full bg-black px-5 py-3 text-xs font-bold text-white">Move <ArrowRight size={14}/></button></div></div>}
+    {moveOpen && canMove && <MoveEditor director={director} draft={draft} setDraft={setDraft} onSubmit={submitMove} busy={busy} error={moveError} onClose={() => setMoveOpen(false)}/>}    
+    {lastMoveResult && <Consequence result={lastMoveResult} onContinue={continueAfterConsequence}/>}  
+  </main>;
 }
