@@ -1,0 +1,54 @@
+/* Pulse mobile viewport guard */
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden !important;
+  overscroll-behavior-x: none;
+}
+
+body,
+#__next {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+*,
+*::before,
+*::after {
+  min-width: 0;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+.pulse-page,
+.pulse-v1-detail,
+.pulse-global-nav,
+.pulse-mobile,
+.pulse-shell {
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  .pulse-page,
+  .pulse-v1-detail {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .pulse-page-header,
+  .pulse-grid,
+  .pulse-card-link,
+  .precision-card,
+  .pulse-v1-detail-intro,
+  .pulse-v1-state-panel,
+  .pulse-v1-action-panel {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+}
