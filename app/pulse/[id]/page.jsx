@@ -36,9 +36,29 @@ function Consequence({ result, onContinue }) {
   </motion.div></AnimatePresence>;
 }
 
+function Reveal({ pulse, ordered, seed, actor, onBack }) {
+  const steps = [
+    { label: 'IT STARTED HERE', text: seed?.text || 'This Pulse began with a simple seed.' },
+    ...ordered.flatMap((move, i) => [
+      { label: move.actor_id === actor ? 'YOU CHANGED THIS' : `MOVE ${i + 1}`, text: contentPreview(contentFromMove(move), 220) },
+      { label: 'STATE CHANGE', text: move.state_after?.summary || 'The Pulse moved forward.' },
+    ]),
+  ];
+  return <main className="pulse-reveal-mode">
+    <div className="pulse-reveal-top"><button className="pulse-reveal-back" onClick={onBack} aria-label="Back"><ArrowLeft size={18}/></button><span>PULSE / REVEAL</span><span>{ordered.length} MOVES</span></div>
+    <div className="pulse-reveal-story">
+      <div className="precision-label reveal-muted">THE STORY OF THIS PULSE</div>
+      <h1>{pulse.title}</h1>
+      <p className="pulse-reveal-intro">This is what it became.</p>
+      <div className="pulse-reveal-timeline">{steps.map((step, i)=><motion.section key={`${step.label}-${i}`} className="pulse-reveal-step" initial={{opacity:0,y:22}} whileInView={{opacity:1,y:0}} viewport={{once:true,margin:'-20%'}} transition={{duration:.5,delay:Math.min(i*.04,.24)}}><div className="reveal-node"/><div className="reveal-label">{step.label}</div><div className="reveal-text">{step.text}</div></motion.section>)}</div>
+      <section className="pulse-reveal-final"><div className="reveal-label">THE REVEAL</div><h2>{pulse.title}</h2><p>{ordered.length ? `${participantCount(ordered)} people changed it.` : 'It never moved.'}</p></section>
+    </div>
+  </main>;
+}
+
 export default function PulseDeepLink({ params }) {
   const routeParams = use(params); const router = useRouter(); const searchParams = useSearchParams(); const id = routeParams?.id;
-  const [pulse,setPulse]=useState(null); const [moves,setMoves]=useState([]); const [actor,setActor]=useState(''); const [loading,setLoading]=useState(true); const [error,setError]=useState(''); const [liked,setLiked]=useState(false); const [moveOpen,setMoveOpen]=useState(false); const [draft,setDraft]=useState(''); const [busy,setBusy]=useState(false); const [moveError,setMoveError]=useState(''); const [lastMoveResult,setLastMoveResult]=useState(null);
+  const [pulse,setPulse]=useState(null); const [moves,setMoves]=useState([]); const [actor,setActor]=useState(''); const [loading,setLoading]=useState(true); const [error,setError]=useState(''); const [liked,setLiked]=useState(false); const [moveOpen,setMoveOpen]=useState(false); const [draft,setDraft]=useState(''); const [busy,setBusy]=useState(false); const [moveError,setMoveError]=useState(''); const [lastMoveResult,setLastMoveResult]=useState(null); const [revealOpen,setRevealOpen]=useState(false);
   const load = async()=>{ if(!id)return; setLoading(true); setError(''); try{ const [{data:p,error:pe},{data:m,error:me}]=await Promise.all([supabase.from('pulses').select('*').eq('id',id).maybeSingle(),supabase.from('pulse_moves').select('*').eq('pulse_id',id).order('created_at',{ascending:true})]); if(pe)throw pe;if(me)throw me;if(!p)throw new Error('This Pulse is no longer available.');setPulse(p);setMoves(m||[]);}catch(e){setError(e?.message||'Could not open this Pulse.')}finally{setLoading(false)}};
   useEffect(()=>{setActor(actorId());setMoveOpen(searchParams.get('move')==='1');load()},[id,searchParams]);
   useEffect(()=>{if(!pulse?.id)return;const channel=supabase.channel(`pulse-deep-link:${pulse.id}`).on('postgres_changes',{event:'*',schema:'public',table:'pulses',filter:`id=eq.${pulse.id}`},load).on('postgres_changes',{event:'INSERT',schema:'public',table:'pulse_moves',filter:`pulse_id=eq.${pulse.id}`},load).subscribe();return()=>{supabase.removeChannel(channel)}},[pulse?.id]);
@@ -49,17 +69,18 @@ export default function PulseDeepLink({ params }) {
   if(loading)return <main className="pulse-v1-page"><div className="pulse-v1-skeleton"><div/><div/><div/></div></main>;
   if(error||!pulse)return <main className="pulse-v1-page pulse-v1-center"><div className="precision-card pad"><div className="precision-label">PULSE UNAVAILABLE</div><h1 className="pulse-page-title">Something changed.</h1><p className="precision-body">{error||'This Pulse could not be found.'}</p><button className="precision-button" onClick={load}><RefreshCw size={14}/> Retry</button></div></main>;
   const stateText=current?.state_after?.summary||seed?.text||'A new world is waiting for a first move.';
+  if(pulse.status!=='active' || revealOpen) return <Reveal pulse={pulse} ordered={ordered} seed={seed} actor={actor} onBack={()=>setRevealOpen(false)}/>;
   return <main className="pulse-v1-page">
     <header className="pulse-v1-topbar"><button className="precision-icon" onClick={()=>router.back()} aria-label="Back"><ArrowLeft size={17}/></button><div className="pulse-v1-wordmark">PULSE</div><div className="pulse-v1-top-actions"><button className={`precision-icon ${liked?'is-liked':''}`} onClick={like} aria-label="Like"><Heart size={17} fill={liked?'currentColor':'none'}/></button><button className="precision-icon" onClick={share} aria-label="Share"><Share2 size={17}/></button></div></header>
     <div className="pulse-v1-detail">
-      <section className="pulse-v1-detail-intro"><div className="pulse-move-chip live">{pulse.status==='active'?'MOVING':'REVEALED'}</div><h1>{pulse.title}</h1><p>{pulse.intent||'Someone starts. Someone else changes it.'}</p><div className="pulse-v1-detail-meta"><span>{participantCount(ordered)} PEOPLE</span><span>{ordered.length} MOVES</span><span>{formatRelative(pulse.updated_at)}</span></div></section>
+      <section className="pulse-v1-detail-intro"><div className="pulse-move-chip live">MOVING</div><h1>{pulse.title}</h1><p>{pulse.intent||'Someone starts. Someone else changes it.'}</p><div className="pulse-v1-detail-meta"><span>{participantCount(ordered)} PEOPLE</span><span>{ordered.length} MOVES</span><span>{formatRelative(pulse.updated_at)}</span></div></section>
       <section className="pulse-v1-detail-grid">
         <div className="pulse-v1-state-panel"><div className="precision-label">CURRENT STATE</div><p>{stateText}</p><div className="pulse-v1-state-media"><Media src={currentMedia} alt="Current Pulse state"/></div></div>
         <div className="pulse-v1-trace-panel"><div className="precision-label">TRACE</div><div className="pulse-v1-trace"> <div className="pulse-v1-trace-node"><span>SEED</span><p>{seed?.text||'Pulse begins here.'}</p></div>{ordered.map((move,i)=><div className={`pulse-v1-trace-node ${i===ordered.length-1?'current':''}`} key={move.id}><span>MOVE {i+1}</span><p>{contentPreview(contentFromMove(move),180)}</p><small>{move.actor_id===actor?'YOU':'SOMEONE'} · {formatRelative(move.created_at)}</small></div>)}</div>{ordered.length>1&&<div className="pulse-v1-branch">{ordered.length-1} OTHER PATH{ordered.length-1===1?'':'S'} HAPPENED</div>}</div>
-        <div className="pulse-v1-action-panel"><div className="precision-label">YOUR MOVE</div><h2>{director?.title||'Change what happens next.'}</h2><p>{director?.prompt||'Add something that changes the current state.'}</p>{isCreator?<div className="pulse-v1-notice">YOU CREATED THIS PULSE.<br/>Someone else needs to make the next move.</div>:joined?<div className="pulse-v1-notice">YOUR TRACE STARTED.<br/>Come back later to see what happened after you.</div>:pulse.status!=='active'?<div className="pulse-v1-notice">THIS PULSE HAS ALREADY BEEN REVEALED.</div>:<button className="pulse-v1-move" onClick={()=>setMoveOpen(true)}><span>MOVE</span><ArrowRight size={18}/></button>}</div>
+        <div className="pulse-v1-action-panel"><div className="precision-label">YOUR MOVE</div><h2>{director?.title||'Change what happens next.'}</h2><p>{director?.prompt||'Add something that changes the current state.'}</p>{isCreator?<div className="pulse-v1-notice">YOU CREATED THIS PULSE.<br/>Someone else needs to make the next move.</div>:joined?<div className="pulse-v1-notice">YOUR TRACE STARTED.<br/>Come back later to see what happened after you.</div>:<button className="pulse-v1-move" onClick={()=>setMoveOpen(true)}><span>MOVE</span><ArrowRight size={18}/></button>}</div>
       </section>
       {joined&&<div className="revisit-box"><strong>YOUR TRACE CONTINUED</strong><p>Someone may have changed the Pulse after you. Revisit to see the consequence.</p><button className="precision-button secondary" onClick={load}>REVISIT <RotateCcw size={14}/></button></div>}
     </div>
-    {moveOpen&&canMove&&<MoveEditor director={director} draft={draft} setDraft={setDraft} onSubmit={submitMove} busy={busy} error={moveError} onClose={()=>setMoveOpen(false)}/>} {lastMoveResult&&<Consequence result={lastMoveResult} onContinue={()=>setLastMoveResult(null)}/>} 
+    {moveOpen&&canMove&&<MoveEditor director={director} draft={draft} setDraft={setDraft} onSubmit={submitMove} busy={busy} error={moveError} onClose={()=>setMoveOpen(false)}/>} {lastMoveResult&&<Consequence result={lastMoveResult} onContinue={()=>setLastMoveResult(null)}/>}
   </main>;
 }
