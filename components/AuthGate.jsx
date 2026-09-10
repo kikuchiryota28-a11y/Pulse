@@ -110,11 +110,11 @@ function AccountSheet({ session, onClose }) {
         <form onSubmit={submit}>
           <div className="field">
             <label>Email</label>
-            <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" disabled={busy}/>
+            <input type="email" className="bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:ring-2 focus:ring-emerald-500" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" disabled={busy}/>
           </div>
           <div className="field">
             <label>Password</label>
-            <input type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8 characters or more" minLength={8} disabled={busy}/>
+            <input type="password" className="bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:ring-2 focus:ring-emerald-500" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8 characters or more" minLength={8} disabled={busy}/>
           </div>
           {error && <div className="error">{error}</div>}
           {message && <div className="prompt-card" style={{ marginTop: 12 }}><p>{message}</p></div>}
