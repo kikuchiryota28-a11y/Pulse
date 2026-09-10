@@ -7,6 +7,7 @@ import "../src/pulse-ui-v3.css";
 import "../src/mobile-overflow-fix.css";
 import "../src/pulse-content-focus.css";
 import "../src/pulse-design-system.css";
+import "../src/pulse-fluid-polish.css";
 import PulseMotion from "./PulseMotion";
 import MoveExperienceBridge from "../components/MoveExperienceBridge";
 import AuthGate from "../components/AuthGate";
