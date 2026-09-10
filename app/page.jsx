@@ -3,79 +3,55 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Search, Plus, Bell, ArrowUpRight, Users, Layers3 } from 'lucide-react';
+import { ArrowUpRight, Search, Plus, Bell, Users, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { contentFromMove, contentPreview, formatRelative, mediaFromContent, participantCount, seedFromPulse, actorId } from '../lib/pulse-social';
 import '../src/pulse-design-system.css';
+import '../src/pulse-home-neo.css';
 
-const tabs = ['FOR YOU', 'MOVING NOW', 'NEW'];
+const tabs = ['FOR YOU', 'LIVE', 'NEW'];
 
-function statusOf(p) {
-  if (p.status !== 'active') return 'REVEALED';
-  return p.updated_at && Date.now() - new Date(p.updated_at).getTime() < 15 * 60 * 1000 ? 'LIVE' : 'MOVING';
+function statusOf(pulse) {
+  if (pulse.status !== 'active') return 'ENDED';
+  const age = Date.now() - new Date(pulse.updated_at || pulse.created_at).getTime();
+  return age < 20 * 60 * 1000 ? 'LIVE' : 'OPEN';
 }
 
 function initials(id = '') {
-  const clean = String(id).replace(/^a_/, '').replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase();
-  return clean || 'P';
+  const value = String(id).replace(/^a_/, '').replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase();
+  return value || 'P';
 }
 
-function AvatarStack({ pulse, moves }) {
-  const ids = [pulse?.creator_id, ...(moves || []).map((m) => m.actor_id)].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).slice(0, 4);
-  return (
-    <div className="pulse-avatar-stack" aria-label={`${participantCount(moves)} participants`}>
-      {ids.map((id, i) => <span className={`pulse-avatar avatar-${i}`} key={id}>{initials(id)}</span>)}
-      <span className="pulse-joined">{participantCount(moves)} joined</span>
-    </div>
-  );
+function PulseImage({ src, label }) {
+  if (src) return <img src={src} alt="" loading="lazy" />;
+  return <div className="neo-image-fallback" aria-label={label} />;
 }
 
-function PulseCard({ pulse, moves, isSelf }) {
-  const current = moves?.at(-1);
-  const latestContent = contentFromMove(current);
+function PulseCard({ pulse, moves, isSelf, featured = false }) {
+  const current = moves.at(-1);
   const seed = seedFromPulse(pulse);
-  const media = mediaFromContent(latestContent) || seed?.dataUrl || null;
-  const state = current?.state_after?.summary || latestContent?.summary || latestContent?.text || latestContent?.choice || seed?.text || '';
+  const content = contentFromMove(current);
+  const media = mediaFromContent(content) || seed?.dataUrl || null;
+  const state = current?.state_after?.summary || content?.summary || content?.text || content?.choice || seed?.text || '';
   const status = statusOf(pulse);
-  const depth = moves.length;
+  const count = participantCount(moves);
 
   return (
-    <motion.div
-      className="pulse-card-shell"
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: .42, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ y: -4 }}
-    >
-      <Link className="pulse-card-link" href={`/pulse/${pulse.id}`}>
-        <article className="pulse-home-card">
-          {media ? <div className="pulse-card-visual"><img src={media} alt="" loading="lazy" /></div> : <div className="pulse-card-visual pulse-card-visual-placeholder" aria-hidden="true" />}
-          <div className="pulse-card-noise" aria-hidden="true" />
-          <div className="pulse-card-overlay">
-            <div className="pulse-card-top">
-              <span className={`pulse-move-chip ${status !== 'REVEALED' ? 'live' : ''}`}>{status}</span>
-              <span className="pulse-card-time">{formatRelative(pulse.updated_at)}</span>
-            </div>
-            <div className="pulse-card-kicker">{isSelf ? 'YOUR PULSE' : 'PULSE'}</div>
-            <h2 className="pulse-card-title-xl">{pulse.title}</h2>
-            {state && <p className="pulse-card-hook">{contentPreview({ text: state }, 92)}</p>}
-            <div className="pulse-card-footer-row">
-              <AvatarStack pulse={pulse} moves={moves} />
-              <span className="pulse-depth"><Layers3 size={13} /> {depth} {depth === 1 ? 'step' : 'steps'}</span>
-            </div>
-            <div className="pulse-card-action-row">
-              {isSelf ? (
-                <span className="pulse-card-self-actions"><span>VIEW CHAIN</span><ArrowUpRight size={15} /></span>
-              ) : status === 'REVEALED' ? (
-                <span className="pulse-card-self-actions"><span>SEE RESULT</span><ArrowUpRight size={15} /></span>
-              ) : (
-                <span className="pulse-card-join-button"><span>JOIN PULSE</span><ArrowUpRight size={15} /></span>
-              )}
-            </div>
+    <motion.article className={`neo-pulse ${featured ? 'neo-pulse-featured' : ''}`} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .45, ease: [0.22, 1, 0.36, 1] }} whileHover={{ y: featured ? -3 : -5 }}>
+      <Link href={`/pulse/${pulse.id}`} className="neo-pulse-link">
+        <div className="neo-pulse-media"><PulseImage src={media} label={pulse.title} /><div className="neo-pulse-shade" /></div>
+        <div className="neo-pulse-content">
+          <div className="neo-pulse-meta"><span className={status === 'LIVE' ? 'is-live' : ''}><i />{status}</span><time>{formatRelative(pulse.updated_at || pulse.created_at)}</time></div>
+          <div className="neo-pulse-type">{isSelf ? 'YOUR PULSE' : 'PULSE'}</div>
+          <h2>{pulse.title}</h2>
+          {state && <p>{contentPreview({ text: state }, featured ? 150 : 92)}</p>}
+          <div className="neo-pulse-bottom">
+            <div className="neo-people"><span className="neo-avatar">{initials(pulse.creator_id)}</span><span>{count} {count === 1 ? 'person' : 'people'} changed this</span></div>
+            <span className="neo-open">{isSelf ? 'OPEN CHAIN' : status === 'ENDED' ? 'SEE RESULT' : 'JOIN'} <ArrowUpRight size={15} /></span>
           </div>
-        </article>
+        </div>
       </Link>
-    </motion.div>
+    </motion.article>
   );
 }
 
@@ -83,21 +59,21 @@ export default function Home() {
   const [pulses, setPulses] = useState([]);
   const [moves, setMoves] = useState({});
   const [tab, setTab] = useState('FOR YOU');
-  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [actor, setActor] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setActor(actorId());
     const load = async () => {
       setLoading(true);
       const { data: p } = await supabase.from('pulses').select('*').order('updated_at', { ascending: false }).limit(36);
-      setPulses(p || []);
-      const ids = (p || []).map((x) => x.id);
-      if (ids.length) {
-        const { data: m } = await supabase.from('pulse_moves').select('*').in('pulse_id', ids).order('created_at', { ascending: true });
+      const list = p || [];
+      setPulses(list);
+      if (list.length) {
+        const { data: m } = await supabase.from('pulse_moves').select('*').in('pulse_id', list.map((x) => x.id)).order('created_at', { ascending: true });
         const grouped = {};
-        (m || []).forEach((x) => (grouped[x.pulse_id] ??= []).push(x));
+        (m || []).forEach((move) => (grouped[move.pulse_id] ??= []).push(move));
         setMoves(grouped);
       } else setMoves({});
       setLoading(false);
@@ -107,48 +83,48 @@ export default function Home() {
 
   const filtered = useMemo(() => {
     let list = [...pulses];
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      list = list.filter((p) => `${p.title} ${p.intent || ''} ${(seedFromPulse(p).text || '')}`.toLowerCase().includes(q));
-    }
-    if (tab === 'MOVING NOW') list = list.filter((p) => p.status === 'active' && Date.now() - new Date(p.updated_at).getTime() < 30 * 60 * 1000);
-    if (tab === 'NEW') list = list.sort((a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at));
+    const q = query.trim().toLowerCase();
+    if (q) list = list.filter((p) => `${p.title} ${p.intent || ''} ${seedFromPulse(p).text || ''}`.toLowerCase().includes(q));
+    if (tab === 'LIVE') list = list.filter((p) => p.status === 'active' && Date.now() - new Date(p.updated_at || p.created_at).getTime() < 30 * 60 * 1000);
+    if (tab === 'NEW') list.sort((a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at));
     return list;
   }, [pulses, query, tab]);
 
+  const featured = filtered[0];
+  const rest = filtered.slice(1);
+
   return (
-    <main className="pulse-page pulse-home-v2">
-      <header className="pulse-page-header">
-        <div>
-          <div className="pulse-page-kicker">PULSE</div>
-          <h1 className="pulse-page-title">See something.<br />Change what happens.</h1>
+    <main className="pulse-neo-home">
+      <header className="neo-header">
+        <Link href="/" className="neo-brand" aria-label="Pulse home"><span className="neo-brand-mark">p</span><span>PULSE</span></Link>
+        <div className="neo-header-right">
+          <label className="neo-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find something interesting" aria-label="Search Pulses" /></label>
+          <Link href="/activity" className="neo-icon" aria-label="Activity"><Bell size={18} /></Link>
+          <Link href="/create" className="neo-create"><Plus size={17} /> CREATE</Link>
         </div>
-        <Link href="/create" className="precision-button"><Plus size={15} /> CREATE</Link>
       </header>
 
-      <div className="pulse-segment" role="group" aria-label="Pulse filters">
-        {tabs.map((t) => <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}>{t}</button>)}
-      </div>
-
-      <div className="pulse-home-toolbar">
-        <div className="pulse-home-search"><Search size={15} /><input aria-label="Search Pulses" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search Pulses" /></div>
-        <Link href="/activity" className="precision-icon" aria-label="Activity"><Bell size={17} /></Link>
-      </div>
-
-      <section className="pulse-feed-intro">
-        <span>{loading ? 'TUNING THE FEED' : `${filtered.length} PULSES`}</span>
-        <span>FIND ONE THAT MAKES YOU WANT TO MOVE</span>
+      <section className="neo-intro">
+        <div>
+          <div className="neo-eyebrow"><Sparkles size={13} /> SOMETHING IS HAPPENING</div>
+          <h1>Don't just scroll.<br /><em>change something.</em></h1>
+          <p>Every Pulse starts somewhere. Find one that makes you curious enough to step in.</p>
+        </div>
+        <div className="neo-filter-wrap">{tabs.map((tabName) => <button key={tabName} className={tab === tabName ? 'active' : ''} onClick={() => setTab(tabName)}>{tabName}</button>)}</div>
       </section>
 
-      {loading ? (
-        <div className="pulse-grid pulse-grid-3"><div className="pulse-skeleton" /><div className="pulse-skeleton" /><div className="pulse-skeleton" /></div>
-      ) : filtered.length === 0 ? (
-        <div className="pulse-empty-state precision-card pad">Nothing here yet. Try a different signal.</div>
-      ) : (
-        <div className="pulse-grid pulse-grid-3">
-          {filtered.map((pulse) => <PulseCard key={pulse.id} pulse={pulse} moves={moves[pulse.id] || []} isSelf={Boolean(actor && pulse.creator_id === actor)} />)}
-        </div>
-      )}
+      {loading ? <section className="neo-loading"><span /><span /><span /></section> : filtered.length === 0 ? <section className="neo-empty"><strong>Nothing is matching that.</strong><span>Try another search or come back when something starts moving.</span></section> : <>
+        <section className="neo-feature-row">
+          <div className="neo-section-label"><span>01</span><strong>ONE TO STEP INTO</strong><small>{filtered.length} open Pulses</small></div>
+          <PulseCard pulse={featured} moves={moves[featured.id] || []} isSelf={featured.creator_id === actor} featured />
+        </section>
+        {rest.length > 0 && <section className="neo-discover">
+          <div className="neo-section-label"><span>02</span><strong>KEEP LOOKING</strong><small>There is no correct order.</small></div>
+          <div className="neo-list">{rest.map((pulse) => <PulseCard key={pulse.id} pulse={pulse} moves={moves[pulse.id] || []} isSelf={pulse.creator_id === actor} />)}</div>
+        </section>}
+      </>}
+
+      <footer className="neo-footer"><span><Users size={14} /> Pulse is better when other people change it.</span><span>SEE → JOIN → CHANGE → SEE WHAT HAPPENS</span></footer>
     </main>
   );
 }
