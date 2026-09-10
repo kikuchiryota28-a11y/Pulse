@@ -1,0 +1,33 @@
+/* Final cross-screen pass: intentionally isolated from legacy CSS. */
+
+/* You */
+.you-v2 .pulse-page-header{margin-bottom:18px}.you-v2 .pulse-page-kicker{margin-bottom:6px}.you-v2 a,.you-v2 button{-webkit-tap-highlight-color:transparent}
+.you-hero,.create-panel,.account-form,.account-card,.reveal-result,.explore-card,.activity-row,.you-pulse-card,.you-move-card{will-change:transform}
+
+/* Create */
+.create-v2 .pulse-page-subtitle{max-width:620px;margin-top:12px}.create-stage{max-width:900px}.create-panel .pulse-v1-textarea{min-height:150px}.stranger-banner{display:inline-flex;padding:7px 9px;border-radius:999px;background:rgba(255,214,0,.10);color:var(--pulse-accent);font-size:8px;font-weight:900;letter-spacing:.14em}.create-preview .pulse-page-title{font-size:clamp(34px,6vw,58px)}
+
+/* Account */
+.account-v2 .pulse-page-header{margin-bottom:20px}.account-card .precision-button{display:inline-flex;align-items:center;gap:7px}.account-form .pulse-join-primary{margin-top:18px}
+
+/* Reveal */
+.reveal-v2 .pulse-page-header{margin-bottom:20px}.reveal-footer .pulse-text-link{color:var(--pulse-text)}.reveal-library-item{cursor:pointer;font:inherit}.reveal-library-item:active{transform:scale(.99)}
+
+/* Global interaction polish */
+:is(.precision-button,.pulse-join-primary,.pulse-global-nav a,.precision-icon,.explore-filter-row button,.you-tabs button,.account-switch button,.create-kind-row button,.reveal-library-item){-webkit-user-select:none;user-select:none}
+:focus-visible{outline:2px solid var(--pulse-accent)!important;outline-offset:3px!important}
+button:disabled{cursor:not-allowed}
+
+/* Hide old fixed/ambient decorations that compete with the new system. */
+.pulse-floating-action,.legacy-floating-button,.stranger-banner + .legacy-overlay{z-index:0}
+
+@media(max-width:760px){
+  .pulse-page-header{gap:14px}.pulse-page-header>.precision-button{align-self:flex-start}.pulse-page-header .pulse-page-title{max-width:100%}
+  .pulse-home-toolbar{position:sticky;top:8px;z-index:20;padding:7px 0;background:linear-gradient(var(--pulse-bg) 75%,transparent);backdrop-filter:blur(8px)}
+  .pulse-v1-topbar{position:sticky!important;top:0;z-index:40}
+  .pulse-card-title-xl{max-width:100%}
+}
+
+@media(pointer:coarse){
+  .precision-icon{min-width:44px;min-height:44px}.pulse-global-nav a{min-width:48px}.pulse-join-primary{min-height:52px}.explore-filter-row button{min-height:42px}.you-tabs button{min-height:44px}
+}
