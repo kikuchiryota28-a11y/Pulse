@@ -11,6 +11,7 @@ import "../src/pulse-fluid-polish.css";
 import "../src/pulse-fluid-components.css";
 import "../src/pulse-fluid-screens.css";
 import "../src/pulse-fluid-final.css";
+import "../src/pulse-ui-reset.css";
 import PulseMotion from "./PulseMotion";
 import MoveExperienceBridge from "../components/MoveExperienceBridge";
 import AuthGate from "../components/AuthGate";
