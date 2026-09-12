@@ -13,14 +13,8 @@ body {
 }
 
 body,
-body * {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  overflow-x: hidden;
-}
+body * { box-sizing: border-box; }
+body { margin: 0; overflow-x: hidden; }
 
 main,
 section,
@@ -47,23 +41,14 @@ select {
   border-color: #27272A !important;
   border-radius: 0 !important;
   box-shadow: none !important;
+  position: static !important;
 }
 
 input::placeholder,
-textarea::placeholder {
-  color: #52525B !important;
-}
+textarea::placeholder { color: #52525B !important; }
 
-button {
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-img,
-video,
-svg {
-  max-width: 100%;
-}
+button { border-radius: 0 !important; box-shadow: none !important; }
+img, video, svg { max-width: 100%; }
 
 p,
 h1,
@@ -91,48 +76,224 @@ label {
   display: block;
 }
 
-input,
-textarea,
-select {
-  position: static !important;
-}
-
-/* Kill legacy light/beige surfaces and oversized rounded UI. */
+/* Hard remove legacy light/beige surfaces. */
 [style*="#F4E9D8"],
 [style*="#FFF8EC"],
+[style*="#efe2d9"],
 .bg-amber-50,
 .bg-orange-50,
 .bg-yellow-50,
 .bg-stone-50,
+.bg-stone-100,
 .bg-neutral-50,
+.bg-white,
 .rounded-2xl,
 .rounded-3xl {
-  background: transparent !important;
+  background: #08080A !important;
   border-radius: 0 !important;
 }
 
-/* Editorial primitives. */
-.border,
-.border-2,
-.border-\[1px\] {
-  border-color: #27272A !important;
-}
-
 .text-black,
+.text-gray-900,
 .text-neutral-900,
-.text-zinc-950 {
-  color: #FAFAFA !important;
-}
+.text-zinc-950 { color: #FAFAFA !important; }
 
 .text-neutral-500,
-.text-zinc-500 {
-  color: #71717A;
+.text-zinc-500 { color: #71717A !important; }
+
+/* Global bottom nav: force horizontal, non-wrapping labels. */
+.pulse-shell > nav[aria-label="Primary navigation"] {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: min(94vw, 560px) !important;
+  max-width: 560px !important;
+  min-width: 280px !important;
+  white-space: nowrap !important;
+  writing-mode: horizontal-tb !important;
+  bottom: 20px !important;
+  padding: 8px !important;
 }
 
-/* Prevent the common narrow-column Japanese failure mode. */
+.pulse-shell > nav[aria-label="Primary navigation"] > a {
+  display: flex !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  writing-mode: horizontal-tb !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  text-orientation: mixed !important;
+  gap: 7px !important;
+}
+
+.pulse-shell > nav[aria-label="Primary navigation"] > a > span {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  writing-mode: horizontal-tb !important;
+  overflow-wrap: normal !important;
+}
+
+/* Account page tabs. */
+.account-switch {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  width: 100% !important;
+  margin: 24px 0 !important;
+  white-space: nowrap !important;
+}
+
+.account-switch button {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+  writing-mode: horizontal-tb !important;
+  color: #A1A1AA !important;
+  border: 1px solid #27272A !important;
+  background: transparent !important;
+  padding: 12px 14px !important;
+}
+
+.account-switch button.active {
+  color: #FAFAFA !important;
+  background: #18181B !important;
+  border-color: #52525B !important;
+}
+
+/* Account form: label and input are always vertical. */
+.account-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+
+.account-form label,
+.account-form > label {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.account-form label span {
+  position: static !important;
+  display: block !important;
+  color: #A1A1AA !important;
+  white-space: nowrap !important;
+}
+
+.account-form input {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 48px !important;
+  padding: 12px 0 !important;
+  background: transparent !important;
+  color: #FAFAFA !important;
+  border: 0 !important;
+  border-bottom: 1px solid #27272A !important;
+  border-radius: 0 !important;
+}
+
+/* Account sheet/modal contrast and stacking. */
+.sheet-backdrop {
+  background: rgba(0, 0, 0, 0.72) !important;
+}
+
+.sheet {
+  background: #18181B !important;
+  color: #FAFAFA !important;
+  border-top: 1px solid #27272A !important;
+  border-radius: 20px 20px 0 0 !important;
+  max-width: 720px !important;
+}
+
+.sheet-title,
+.sheet h1,
+.sheet h2,
+.sheet h3 { color: #FAFAFA !important; }
+.sheet-subtitle { color: #A1A1AA !important; }
+.sheet .pulse-kicker,
+.sheet .prompt-label { color: #71717A !important; }
+
+.sheet .field {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.sheet .field label {
+  display: block !important;
+  width: 100% !important;
+  color: #A1A1AA !important;
+}
+
+.sheet .field input {
+  background: #18181B !important;
+  color: #FAFAFA !important;
+  border: 0 !important;
+  border-bottom: 1px solid #3F3F46 !important;
+}
+
+.sheet .field input:focus {
+  outline: none !important;
+  border-bottom-color: #FAFAFA !important;
+}
+
+.sheet .prompt-card {
+  background: #27272A !important;
+  border: 1px solid #3F3F46 !important;
+  color: #FAFAFA !important;
+  border-radius: 10px !important;
+}
+
+.sheet .primary-button,
+.sheet .secondary-button {
+  color: #FAFAFA !important;
+  border: 1px solid #3F3F46 !important;
+  background: #27272A !important;
+}
+
+/* Floating account badge/CTA: keep clear of the bottom nav. */
+.secondary-button[style*="position: fixed"],
+.primary-button[style*="position: fixed"] {
+  bottom: 96px !important;
+  z-index: 65 !important;
+  background: #18181B !important;
+  color: #FAFAFA !important;
+  border: 1px solid #3F3F46 !important;
+}
+
+/* Generic fixed CTA used by legacy detail screens. */
+.detail-cta {
+  bottom: 96px !important;
+  z-index: 65 !important;
+  background: #18181B !important;
+  color: #FAFAFA !important;
+  border-color: #3F3F46 !important;
+}
+
+/* Kill inline light error banners. */
+.error[style*="background"] {
+  background: #18181B !important;
+  color: #FAFAFA !important;
+  border: 1px solid #3F3F46 !important;
+}
+
+/* Prevent narrow-column Japanese layout failures. */
 .max-w-xs,
 .max-w-sm,
 .w-\[80px\],
-.w-\[120px\] {
-  min-width: 0;
-}
+.w-\[120px\] { min-width: 0; }
+
+.break-words { overflow-wrap: anywhere !important; word-break: normal !important; }
+.leading-tight { line-height: 1.05 !important; }
