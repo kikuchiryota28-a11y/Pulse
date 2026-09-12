@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { Search, ArrowUpRight, Sparkles, Flame, Clock3, Ghost } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
-import { contentFromMove, formatRelative, mediaFromContent, seedFromPulse, participantCount } from '../../lib/pulse-social';
+import { formatRelative, seedFromPulse, participantCount } from '../../lib/pulse-social';
 import '../../src/pulse-design-system.css';
+import '../../src/pulse-step3.css';
 
 const FILTERS = [
   { id: 'TRENDING', label: 'TRENDING', icon: Flame },
@@ -18,13 +19,22 @@ const FILTERS = [
 function ExploreCard({ pulse }) {
   const seed = seedFromPulse(pulse);
   const preview = seed?.dataUrl || null;
+  const live = pulse.status === 'active';
   return <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -3 }} transition={{ duration: .35 }}>
     <Link className="pulse-card-link" href={`/pulse/${pulse.id}`}>
       <article className="explore-card">
-        <div className={`explore-card-media ${preview ? '' : 'empty'}`}>{preview && <img src={preview} alt="" loading="lazy" />}</div>
-        <div className="explore-card-shade" />
+        <div className={`explore-card-media ${preview ? '' : 'empty'}`}>
+          {preview && <img src={preview} alt="" loading="lazy" />}
+        </div>
+        <div className="explore-card-shade" aria-hidden="true" />
         <div className="explore-card-content">
-          <div className="explore-card-top"><span>{pulse.status === 'active' ? 'LIVE' : 'RESULT'}</span><small>{formatRelative(pulse.updated_at)}</small></div>
+          <div className="explore-card-top">
+            <span className={live ? 'explore-status-pill live' : 'explore-status-pill'}>
+              {live && <span className="explore-live-dot-wrap relative flex h-2 w-2" aria-hidden="true"><span className="explore-live-dot animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00FF87] opacity-60" /><span className="explore-live-dot-core relative inline-flex h-2 w-2 rounded-full bg-[#00FF87]" /></span>}
+              {live ? 'LIVE' : 'RESULT'}
+            </span>
+            <small>{formatRelative(pulse.updated_at)}</small>
+          </div>
           <h2>{pulse.title}</h2>
           <p>{pulse.intent || seed?.text || 'See where someone else takes this.'}</p>
           <div className="explore-card-bottom"><span>{participantCount(pulse._moves || [])} joined</span><span className="explore-card-go">OPEN <ArrowUpRight size={14} /></span></div>
