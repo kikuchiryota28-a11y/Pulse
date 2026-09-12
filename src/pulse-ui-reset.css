@@ -1,13 +1,15 @@
 :root {
-  --pulse-bg: #08080A;
+  --pulse-bg: #060608;
   --pulse-fg: #FAFAFA;
-  --pulse-muted: #A1A1AA;
-  --pulse-line: #27272A;
+  --pulse-accent: #00FF87;
+  --pulse-muted: #71717A;
+  --pulse-line: rgba(255,255,255,0.05);
+  --pulse-glass: rgba(255,255,255,0.02);
 }
 
 html,
 body {
-  background: #08080A !important;
+  background: #060608 !important;
   color: #FAFAFA !important;
   min-height: 100%;
 }
@@ -16,39 +18,21 @@ body,
 body * { box-sizing: border-box; }
 body { margin: 0; overflow-x: hidden; }
 
-main,
-section,
-article,
-header,
-footer,
-nav,
-form,
-fieldset,
-.card,
-.panel,
-[class*="card"],
-[class*="panel"] {
-  background-color: transparent;
-}
-
 input,
 textarea,
 select {
-  width: 100%;
   max-width: 100%;
-  background: transparent !important;
-  color: #FAFAFA !important;
-  border-color: #27272A !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  position: static !important;
+  color: #FAFAFA;
+  border-color: rgba(255,255,255,0.05);
+  box-shadow: none;
 }
 
 input::placeholder,
-textarea::placeholder { color: #52525B !important; }
+textarea::placeholder { color: #52525B; }
 
-button { border-radius: 0 !important; box-shadow: none !important; }
-img, video, svg { max-width: 100%; }
+img,
+video,
+svg { max-width: 100%; }
 
 p,
 h1,
@@ -60,240 +44,70 @@ h6,
 span,
 label,
 button,
-a {
-  overflow-wrap: anywhere;
+a { overflow-wrap: anywhere; }
+
+button,
+a,
+input,
+textarea,
+select { -webkit-tap-highlight-color: transparent; }
+
+/* Shared editorial / hardware hierarchy. */
+.pulse-poster-heading {
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+  line-height: 0.85;
+  font-size: clamp(3rem, 7vw, 4.5rem);
+  color: #FAFAFA;
 }
 
-form,
-fieldset {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+.pulse-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #71717A;
 }
 
-label {
-  position: static !important;
-  display: block;
+.pulse-glass {
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 1.5rem;
 }
 
-/* Hard remove legacy light/beige surfaces. */
-[style*="#F4E9D8"],
-[style*="#FFF8EC"],
-[style*="#efe2d9"],
-.bg-amber-50,
-.bg-orange-50,
-.bg-yellow-50,
-.bg-stone-50,
-.bg-stone-100,
-.bg-neutral-50,
-.bg-white,
-.rounded-2xl,
-.rounded-3xl {
-  background: #08080A !important;
-  border-radius: 0 !important;
+.pulse-divider { border-top: 1px solid rgba(255,255,255,0.05); }
+
+.pulse-live-indicator {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.5rem;
+  border-radius: 9999px;
+  background: #00FF87;
+  animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite;
+  box-shadow: 0 0 10px #00FF87;
 }
 
-.text-black,
-.text-gray-900,
-.text-neutral-900,
-.text-zinc-950 { color: #FAFAFA !important; }
-
-.text-neutral-500,
-.text-zinc-500 { color: #71717A !important; }
-
-/* Global bottom nav: force horizontal, non-wrapping labels. */
 .pulse-shell > nav[aria-label="Primary navigation"] {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: min(94vw, 560px) !important;
-  max-width: 560px !important;
-  min-width: 280px !important;
-  white-space: nowrap !important;
-  writing-mode: horizontal-tb !important;
-  bottom: 20px !important;
-  padding: 8px !important;
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
 }
 
 .pulse-shell > nav[aria-label="Primary navigation"] > a {
-  display: flex !important;
-  flex: 1 1 0 !important;
-  min-width: 0 !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  white-space: nowrap !important;
-  writing-mode: horizontal-tb !important;
-  word-break: keep-all !important;
-  overflow-wrap: normal !important;
-  text-orientation: mixed !important;
-  gap: 7px !important;
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
+  color: #71717A;
 }
 
-.pulse-shell > nav[aria-label="Primary navigation"] > a > span {
-  white-space: nowrap !important;
-  word-break: keep-all !important;
-  writing-mode: horizontal-tb !important;
-  overflow-wrap: normal !important;
+.pulse-shell > nav[aria-label="Primary navigation"] > a[aria-current="page"] { color: #FAFAFA; }
+
+@media (max-width: 520px) {
+  .pulse-shell > nav[aria-label="Primary navigation"] {
+    gap: 1.25rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
 }
-
-/* Account page tabs. */
-.account-switch {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: stretch !important;
-  gap: 8px !important;
-  width: 100% !important;
-  margin: 24px 0 !important;
-  white-space: nowrap !important;
-}
-
-.account-switch button {
-  flex: 1 1 0 !important;
-  min-width: 0 !important;
-  white-space: nowrap !important;
-  writing-mode: horizontal-tb !important;
-  color: #A1A1AA !important;
-  border: 1px solid #27272A !important;
-  background: transparent !important;
-  padding: 12px 14px !important;
-}
-
-.account-switch button.active {
-  color: #FAFAFA !important;
-  background: #18181B !important;
-  border-color: #52525B !important;
-}
-
-/* Account form: label and input are always vertical. */
-.account-form {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 18px !important;
-}
-
-.account-form label,
-.account-form > label {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  gap: 8px !important;
-  width: 100% !important;
-  min-width: 0 !important;
-}
-
-.account-form label span {
-  position: static !important;
-  display: block !important;
-  color: #A1A1AA !important;
-  white-space: nowrap !important;
-}
-
-.account-form input {
-  display: block !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  min-height: 48px !important;
-  padding: 12px 0 !important;
-  background: transparent !important;
-  color: #FAFAFA !important;
-  border: 0 !important;
-  border-bottom: 1px solid #27272A !important;
-  border-radius: 0 !important;
-}
-
-/* Account sheet/modal contrast and stacking. */
-.sheet-backdrop {
-  background: rgba(0, 0, 0, 0.72) !important;
-}
-
-.sheet {
-  background: #18181B !important;
-  color: #FAFAFA !important;
-  border-top: 1px solid #27272A !important;
-  border-radius: 20px 20px 0 0 !important;
-  max-width: 720px !important;
-}
-
-.sheet-title,
-.sheet h1,
-.sheet h2,
-.sheet h3 { color: #FAFAFA !important; }
-.sheet-subtitle { color: #A1A1AA !important; }
-.sheet .pulse-kicker,
-.sheet .prompt-label { color: #71717A !important; }
-
-.sheet .field {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
-  width: 100% !important;
-}
-
-.sheet .field label {
-  display: block !important;
-  width: 100% !important;
-  color: #A1A1AA !important;
-}
-
-.sheet .field input {
-  background: #18181B !important;
-  color: #FAFAFA !important;
-  border: 0 !important;
-  border-bottom: 1px solid #3F3F46 !important;
-}
-
-.sheet .field input:focus {
-  outline: none !important;
-  border-bottom-color: #FAFAFA !important;
-}
-
-.sheet .prompt-card {
-  background: #27272A !important;
-  border: 1px solid #3F3F46 !important;
-  color: #FAFAFA !important;
-  border-radius: 10px !important;
-}
-
-.sheet .primary-button,
-.sheet .secondary-button {
-  color: #FAFAFA !important;
-  border: 1px solid #3F3F46 !important;
-  background: #27272A !important;
-}
-
-/* Floating account badge/CTA: keep clear of the bottom nav. */
-.secondary-button[style*="position: fixed"],
-.primary-button[style*="position: fixed"] {
-  bottom: 96px !important;
-  z-index: 65 !important;
-  background: #18181B !important;
-  color: #FAFAFA !important;
-  border: 1px solid #3F3F46 !important;
-}
-
-/* Generic fixed CTA used by legacy detail screens. */
-.detail-cta {
-  bottom: 96px !important;
-  z-index: 65 !important;
-  background: #18181B !important;
-  color: #FAFAFA !important;
-  border-color: #3F3F46 !important;
-}
-
-/* Kill inline light error banners. */
-.error[style*="background"] {
-  background: #18181B !important;
-  color: #FAFAFA !important;
-  border: 1px solid #3F3F46 !important;
-}
-
-/* Prevent narrow-column Japanese layout failures. */
-.max-w-xs,
-.max-w-sm,
-.w-\[80px\],
-.w-\[120px\] { min-width: 0; }
-
-.break-words { overflow-wrap: anywhere !important; word-break: normal !important; }
-.leading-tight { line-height: 1.05 !important; }
