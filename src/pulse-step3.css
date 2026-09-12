@@ -1,0 +1,305 @@
+/* Pulse STEP 3 — Poster Card + Media Overlay / OLED Dark finishing layer */
+
+/* Poster cards: protect media from the canvas and guarantee readable overlays. */
+.explore-card {
+  position: relative !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  min-height: 460px !important;
+  background: #08080A !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 28px !important;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.34) !important;
+}
+
+.explore-card-media {
+  position: absolute !important;
+  inset: 0 !important;
+  overflow: hidden !important;
+  z-index: 0 !important;
+  background: radial-gradient(circle at 50% 30%, rgba(0,255,135,0.08), transparent 52%), #0b0b0e !important;
+}
+
+.explore-card-media img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transform: scale(1.02) !important;
+  transition: transform 500ms cubic-bezier(.22,1,.36,1), filter 500ms cubic-bezier(.22,1,.36,1) !important;
+}
+
+.explore-card:has(.explore-card-media img) .explore-card-media img {
+  filter: brightness(.68) saturate(.92) !important;
+}
+
+.explore-card:has(.explore-card-content p) .explore-card-media img {
+  filter: brightness(.45) !important;
+  transform: scale(1.05) !important;
+}
+
+.pulse-card-link:hover .explore-card-media img {
+  transform: scale(1) !important;
+}
+
+.explore-card-shade {
+  position: absolute !important;
+  inset: auto 0 0 0 !important;
+  height: 78% !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+  background: linear-gradient(to top, rgba(0,0,0,.90) 0%, rgba(0,0,0,.40) 45%, transparent 100%) !important;
+}
+
+.explore-card-content {
+  position: relative !important;
+  z-index: 2 !important;
+  min-height: 460px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  gap: 0 !important;
+  padding: 26px !important;
+  color: #FAFAFA !important;
+}
+
+.explore-card-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: auto !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 10px !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+}
+
+.explore-card-top small {
+  color: rgba(255,255,255,.45) !important;
+}
+
+.explore-card-top > span {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 28px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  background: rgba(0,0,0,.48) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  color: rgba(255,255,255,.78) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+
+.explore-card-top > span:first-child::before {
+  content: "" !important;
+  position: relative !important;
+  display: block !important;
+  width: 8px !important;
+  height: 8px !important;
+  flex: 0 0 8px !important;
+  border-radius: 999px !important;
+  background: #00FF87 !important;
+  box-shadow: 0 0 12px rgba(0,255,135,.42) !important;
+}
+
+.explore-card-top > span:first-child:has(+ small) {
+  position: relative !important;
+}
+
+.explore-card-top > span:first-child::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 10px !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 999px !important;
+  background: rgba(0,255,135,.38) !important;
+  animation: pulse-live-ping 1.7s cubic-bezier(0,0,.2,1) infinite !important;
+}
+
+.explore-card h2 {
+  margin: 18px 0 10px !important;
+  max-width: 18ch !important;
+  color: #fff !important;
+  font-size: clamp(26px, 4vw, 42px) !important;
+  line-height: .96 !important;
+  letter-spacing: -.055em !important;
+  font-weight: 850 !important;
+  text-wrap: balance !important;
+}
+
+.explore-card p {
+  margin: 0 !important;
+  max-width: 58ch !important;
+  color: rgba(255,255,255,.68) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+
+.explore-card-bottom {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  margin-top: 22px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid rgba(255,255,255,.10) !important;
+  color: rgba(255,255,255,.48) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 10px !important;
+  letter-spacing: .11em !important;
+  text-transform: uppercase !important;
+}
+
+.explore-card-bottom > span:first-child {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 26px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  background: rgba(0,0,0,.42) !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  color: rgba(255,255,255,.64) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.explore-card-go {
+  color: #00FF87 !important;
+  transition: transform .25s cubic-bezier(.22,1,.36,1), opacity .25s ease !important;
+}
+
+.pulse-card-link:hover .explore-card-go {
+  transform: translateX(3px) !important;
+  opacity: 1 !important;
+}
+
+/* Explore search: layered glass without a bright panel. */
+.explore-search {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 52px !important;
+  padding: 0 16px !important;
+  border-radius: 18px !important;
+  background: rgba(255,255,255,.04) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  color: rgba(255,255,255,.42) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 18px 44px rgba(0,0,0,.16) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  transition: border-color .22s ease, box-shadow .22s ease !important;
+}
+
+.explore-search:focus-within {
+  border-color: rgba(0,255,135,.38) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.045), 0 0 0 1px rgba(0,255,135,.06), 0 18px 44px rgba(0,0,0,.18) !important;
+}
+
+.explore-search input {
+  min-width: 0 !important;
+  flex: 1 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.explore-filter-row {
+  display: flex !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.explore-filter-row button {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,.03) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  color: #a1a1aa !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: .08em !important;
+  transition: transform .2s ease, background .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease !important;
+}
+
+.explore-filter-row button:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(255,255,255,.16) !important;
+  color: rgba(255,255,255,.78) !important;
+}
+
+.explore-filter-row button.active {
+  background: #00FF87 !important;
+  border-color: #00FF87 !important;
+  color: #000 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 15px rgba(0,255,135,.30) !important;
+}
+
+/* Create: no more legacy light box. */
+.create-panel {
+  background: rgba(255,255,255,.025) !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+  box-shadow: 0 24px 70px rgba(0,0,0,.26), inset 0 1px rgba(255,255,255,.025) !important;
+  backdrop-filter: blur(22px) !important;
+  -webkit-backdrop-filter: blur(22px) !important;
+}
+
+.create-panel .pulse-v1-textarea,
+.create-panel textarea.pulse-v1-textarea {
+  width: 100% !important;
+  min-height: 150px !important;
+  background: rgba(255,255,255,.04) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  color: #fff !important;
+  border-radius: 24px !important;
+  padding: 24px !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  transition: border-color .22s ease, box-shadow .22s ease, background .22s ease !important;
+}
+
+.create-panel .pulse-v1-textarea:focus,
+.create-panel textarea.pulse-v1-textarea:focus {
+  border-color: rgba(0,255,135,.50) !important;
+  box-shadow: 0 0 0 1px rgba(0,255,135,.08), 0 0 28px rgba(0,255,135,.06) !important;
+  outline: none !important;
+}
+
+.create-field input,
+.create-field textarea {
+  background: rgba(255,255,255,.04) !important;
+  border-color: rgba(255,255,255,.10) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.create-field input:focus,
+.create-field textarea:focus {
+  border-color: rgba(0,255,135,.50) !important;
+  box-shadow: 0 0 0 1px rgba(0,255,135,.08) !important;
+  outline: none !important;
+}
+
+@keyframes pulse-live-ping {
+  0% { transform: scale(.75); opacity: .8; }
+  70%, 100% { transform: scale(2.2); opacity: 0; }
+}
+
+@media (max-width: 760px) {
+  .explore-card,
+  .explore-card-content { min-height: 430px !important; }
+  .explore-card-content { padding: 22px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explore-card-top > span:first-child::after { animation: none !important; }
+}
