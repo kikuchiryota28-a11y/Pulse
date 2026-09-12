@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { actorId } from '../../lib/pulse-social';
 import '../../src/pulse-design-system.css';
+import '../../src/pulse-step3.css';
 
 const stages = ['IDEA', 'SEED', 'PREVIEW', 'LAUNCH'];
 
