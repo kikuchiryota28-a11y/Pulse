@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { PulseMoveCanvas } from '@/components/pulse/PulseMoveCanvas';
+import { PulseMoveCanvas } from '../../../components/pulse/PulseMoveCanvas';
 
 export default function PulseDetailPage() {
   const params = useParams();
@@ -11,15 +11,15 @@ export default function PulseDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 仮データのロード処理（Supabase連携時は supabase.from('pulses')... に差し替え）
     const mockPulse = {
       id: pulseId,
       author_id: 'usr_01',
-      title: 'PROJECT PULSE: INITIAL VOID',
-      category: 'EXPERIMENTAL',
+      title: 'WHAT IF... TODAY, YOU TOOK ONE UNKNOWN ROAD HOME?',
+      category: 'OUTSIDE',
       current_state_id: 'node_01',
       is_frozen: false,
       created_at: new Date().toISOString(),
+      participant_count: 18,
       author: {
         id: 'usr_01',
         username: 'creator',
@@ -32,12 +32,15 @@ export default function PulseDetailPage() {
         pulse_id: pulseId,
         parent_node_id: null,
         version_index: 1,
-        state_data: {
-          bias_ratio: 50,
-        },
+        state_data: { bias_ratio: 50 },
         created_by_user_id: 'usr_01',
         created_at: new Date().toISOString(),
       },
+      move_options: [
+        { id: 'left', label: 'LEFT TURN', hint: 'Take the first unfamiliar turn.', delta: -8 },
+        { id: 'right', label: 'RIGHT TURN', hint: 'Change direction and keep going.', delta: 8 },
+        { id: 'straight', label: 'KEEP GOING', hint: 'Stay on route and notice something new.', delta: 3 },
+      ],
     };
 
     setPulse(mockPulse);
@@ -45,30 +48,22 @@ export default function PulseDetailPage() {
   }, [pulseId]);
 
   const handleSubmitMove = async (payload) => {
-    if (!pulse || !pulse.current_state) return;
+    if (!pulse?.current_state) return;
 
-    // Supabase RPC 呼び出し用の標準コード例:
-    // await supabase.rpc('submit_pulse_move', {
-    //   p_pulse_id: pulse.id,
-    //   p_target_node_id: pulse.current_state.id,
-    //   p_move_type: 'CHOOSE',
-    //   p_payload: payload,
-    // });
-
-    // ローカルステートを即時更新（UIの確認用）
     setPulse((prev) => {
-      if (!prev || !prev.current_state) return prev;
-      const nextVersion = prev.current_state.version_index + 1;
-      const currentBias = prev.current_state.state_data.bias_ratio || 50;
+      if (!prev?.current_state) return prev;
+      const currentBias = prev.current_state.state_data?.bias_ratio ?? 50;
       return {
         ...prev,
+        participant_count: (prev.participant_count ?? 18) + 1,
         current_state: {
           ...prev.current_state,
-          version_index: nextVersion,
+          version_index: prev.current_state.version_index + 1,
           state_data: {
             ...prev.current_state.state_data,
-            bias_ratio: Math.min(Math.max(currentBias + payload.delta, 0), 100),
-            selected_option: payload.choice_id,
+            bias_ratio: Math.min(Math.max(currentBias + (payload.delta ?? 0), 0), 100),
+            selected_option: payload.choice_id ?? null,
+            last_move_text: payload.text ?? null,
           },
         },
       };
@@ -76,19 +71,11 @@ export default function PulseDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black text-zinc-500 font-mono text-xs">
-        LOADING PULSE DATA...
-      </div>
-    );
+    return <div className="flex min-h-screen items-center justify-center bg-[#08080A] font-mono text-xs text-zinc-500">LOADING PULSE...</div>;
   }
 
   if (!pulse) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black text-red-500 font-mono text-xs">
-        PULSE NOT FOUND
-      </div>
-    );
+    return <div className="flex min-h-screen items-center justify-center bg-[#08080A] font-mono text-xs text-red-400">PULSE NOT FOUND</div>;
   }
 
   return <PulseMoveCanvas pulse={pulse} onSubmitMove={handleSubmitMove} />;
