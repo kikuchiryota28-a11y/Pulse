@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { participantCount } from '../lib/pulse-social';
+import { getPulseMoves, savePulseMove, subscribeToPulseMoves } from '../lib/pulse-moves';
 import PulseFeedHero from '../components/PulseFeedHero';
 import { PulseMoveCanvas } from '../components/pulse/PulseMoveCanvas';
 import PulseChainResult from '../components/pulse/PulseChainResult';
@@ -21,8 +22,11 @@ export default function Home() {
   const [isCorePulse, setIsCorePulse] = useState(false);
   const [localParticipantCount, setLocalParticipantCount] = useState(null);
   const [localMove, setLocalMove] = useState(null);
+  const [saveError, setSaveError] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     const load = async () => {
       setLoading(true);
       const { data: p } = await supabase
@@ -30,6 +34,9 @@ export default function Home() {
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(36);
+
+      if (cancelled) return;
+
       const list = p || [];
       setPulses(list);
 
@@ -39,6 +46,9 @@ export default function Home() {
           .select('*')
           .in('pulse_id', list.map((x) => x.id))
           .order('created_at', { ascending: true });
+
+        if (cancelled) return;
+
         const grouped = {};
         (m || []).forEach((move) => {
           if (!grouped[move.pulse_id]) grouped[move.pulse_id] = [];
@@ -52,13 +62,37 @@ export default function Home() {
     };
 
     load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const featured = useMemo(() => pulses[0] || null, [pulses]);
   const featuredMoves = featured ? moves[featured.id] || [] : [];
-  const baseParticipantCount = featured ? participantCount(featuredMoves) : 18;
+  const baseParticipantCount = featured
+    ? featured.participant_count ?? participantCount(featuredMoves)
+    : 18;
   const count = localParticipantCount ?? baseParticipantCount;
   const visibleMoves = localMove ? [...featuredMoves, localMove] : featuredMoves;
+
+  useEffect(() => {
+    if (!featured?.id) return undefined;
+
+    const unsubscribe = subscribeToPulseMoves(featured.id, (incomingMove) => {
+      setMoves((current) => {
+        const existing = current[featured.id] || [];
+        if (existing.some((move) => move.id === incomingMove.id)) return current;
+        return {
+          ...current,
+          [featured.id]: [...existing, incomingMove].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          ),
+        };
+      });
+    });
+
+    return unsubscribe;
+  }, [featured?.id]);
 
   useEffect(() => {
     const handleJoinLink = (event) => {
@@ -68,8 +102,9 @@ export default function Home() {
 
       event.preventDefault();
       event.stopPropagation();
-      setIsCorePulse(false);
+      setSaveError(null);
       setCurrentView('move');
+      setIsCorePulse(true);
       window.history.replaceState(null, '', `/#pulse-${featured.id}`);
     };
 
@@ -80,23 +115,58 @@ export default function Home() {
   const handleSubmitMove = async (payload) => {
     if (!featured) return;
 
-    const nextMove = {
+    setSaveError(null);
+
+    const optimisticMove = {
       id: `local-${Date.now()}`,
       pulse_id: featured.id,
       action: payload.text || payload.choice_id || 'MOVE RECORDED',
       text: payload.text || null,
-      content: payload.text || null,
+      content: payload.text || payload.choice_id || null,
       type: payload.text ? 'TEXT' : 'CHOICE',
       user: 'YOU',
       created_at: new Date().toISOString(),
       choice_id: payload.choice_id,
+      optimistic: true,
     };
 
-    setLocalMove(nextMove);
-    setLocalParticipantCount((previousCount) =>
-      (previousCount ?? count) + 1
-    );
+    // Optimistic UI: show the Move and increment the visible participant count first.
+    setLocalMove(optimisticMove);
+    setLocalParticipantCount((current) => (current ?? baseParticipantCount) + 1);
 
+    // Persistence intentionally runs in the background so the Pulse animation never waits on I/O.
+    void savePulseMove({
+      pulseId: featured.id,
+      type: payload.text ? 'text' : 'choice',
+      content: {
+        type: payload.text ? 'text' : 'choice',
+        text: payload.text || null,
+        choice: payload.choice_id || null,
+        summary: payload.text || payload.choice_id || 'MOVE RECORDED',
+      },
+      prompt: 'What did you do?',
+    })
+      .then((savedMove) => {
+        setLocalMove(null);
+        setMoves((current) => {
+          const existing = current[featured.id] || [];
+          if (existing.some((move) => move.id === savedMove.id)) return current;
+          return {
+            ...current,
+            [featured.id]: [...existing, savedMove].sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            ),
+          };
+        });
+      })
+      .catch((error) => {
+        console.error('Failed to persist Pulse Move:', error);
+        setLocalMove(null);
+        setLocalParticipantCount(null);
+        setSaveError('MOVE SAVE FAILED — TRY AGAIN');
+      });
+
+    // Keep the visual transition independent from database latency.
     await new Promise((resolve) => setTimeout(resolve, 1050));
     setIsCorePulse(true);
     setCurrentView('result');
@@ -105,6 +175,7 @@ export default function Home() {
   const handleBackToFeed = () => {
     setCurrentView('feed');
     setIsCorePulse(false);
+    setSaveError(null);
   };
 
   if (loading) {
@@ -132,7 +203,7 @@ export default function Home() {
   return (
     <main className="relative min-h-[calc(100svh-6rem)] overflow-hidden">
       <AnimatePresence>
-        {isCorePulse && (
+        {isCorePulse && currentView !== 'feed' && (
           <motion.div
             key="core-pulse"
             aria-hidden="true"
@@ -173,6 +244,11 @@ export default function Home() {
               pulse={{ ...featured, participant_count: count }}
               onSubmitMove={handleSubmitMove}
             />
+            {saveError && (
+              <div className="relative z-20 mx-auto max-w-6xl px-5 pb-8 font-mono text-[10px] tracking-[0.16em] text-red-300 sm:px-8">
+                {saveError}
+              </div>
+            )}
           </motion.div>
         )}
 
