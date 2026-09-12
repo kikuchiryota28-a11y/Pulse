@@ -68,8 +68,8 @@ export default function Home() {
 
       event.preventDefault();
       event.stopPropagation();
+      setIsCorePulse(false);
       setCurrentView('move');
-      setIsCorePulse(true);
       window.history.replaceState(null, '', `/#pulse-${featured.id}`);
     };
 
@@ -93,8 +93,8 @@ export default function Home() {
     };
 
     setLocalMove(nextMove);
-    setLocalParticipantCount((baseParticipantCount) =>
-      (baseParticipantCount ?? count) + 1
+    setLocalParticipantCount((previousCount) =>
+      (previousCount ?? count) + 1
     );
 
     await new Promise((resolve) => setTimeout(resolve, 1050));
@@ -132,7 +132,7 @@ export default function Home() {
   return (
     <main className="relative min-h-[calc(100svh-6rem)] overflow-hidden">
       <AnimatePresence>
-        {isCorePulse && currentView !== 'feed' && (
+        {isCorePulse && (
           <motion.div
             key="core-pulse"
             aria-hidden="true"
