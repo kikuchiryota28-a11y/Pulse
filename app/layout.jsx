@@ -16,7 +16,7 @@ import MoveExperienceBridge from "../components/MoveExperienceBridge";
 import AuthGate from "../components/AuthGate";
 import DeletePulseControl from "../components/DeletePulseControl";
 import AccountLauncher from "../components/AccountLauncher";
-import PulseShell from "../components/PulseShell";
+import PulseShell from "../components/PulseShell.jsx";
 
 export const metadata = {
   title: "Pulse — Change what happens next.",
