@@ -18,20 +18,51 @@ function relativeTime(value) {
   return `${hours}h ago`;
 }
 
+function getContentValue(content, key) {
+  if (!content || typeof content !== 'object') return null;
+  const value = content[key];
+  return typeof value === 'string' ? value : null;
+}
+
 export default function PulseChainResult({
   moves = FALLBACK_MOVES,
   status = 'ACTIVE',
   result,
   title = 'WHAT IF...\n今日、知らない道を1本だけ歩いて帰ったら？',
 }) {
-  const normalizedMoves = moves.map((move, index) => ({
-    ...move,
-    id: String(move.id ?? index + 1).padStart(2, '0'),
-    action: move.action ?? move.text ?? move.content ?? 'MOVE RECORDED',
-    user: move.user ?? move.username ?? `USER_${String(index + 1).padStart(2, '0')}`,
-    time: move.time ?? relativeTime(move.created_at),
-    type: move.type ?? (move.photo_url || move.image_url ? 'PHOTO' : 'TEXT'),
-  }));
+  const normalizedMoves = moves.map((move, index) => {
+    const content = move.content;
+    const contentText = typeof content === 'string' ? content : getContentValue(content, 'text');
+    const contentSummary = getContentValue(content, 'summary');
+    const contentChoice = getContentValue(content, 'choice');
+    const action =
+      move.action ||
+      move.text ||
+      contentSummary ||
+      contentText ||
+      contentChoice ||
+      'MOVE RECORDED';
+
+    return {
+      ...move,
+      id: String(move.id ?? index + 1).padStart(2, '0'),
+      action,
+      user: move.user ?? move.username ?? move.actor_id ?? `USER_${String(index + 1).padStart(2, '0')}`,
+      time: move.time ?? relativeTime(move.created_at),
+      type:
+        move.type ??
+        (move.input_type === 'choice'
+          ? 'CHOICE'
+          : move.input_type === 'photo'
+            ? 'PHOTO'
+            : move.input_type === 'mixed'
+              ? 'MIXED'
+              : move.photo_url || move.image_url
+                ? 'PHOTO'
+                : 'TEXT'),
+      displayText: contentText || (typeof move.text === 'string' ? move.text : null),
+    };
+  });
 
   const isEnded = status === 'ENDED' || status === 'RESULT' || Boolean(result);
   const resultData = {
@@ -100,9 +131,9 @@ export default function PulseChainResult({
                       loading="lazy"
                     />
                   </div>
-                ) : move.text || move.content ? (
+                ) : move.displayText ? (
                   <p className="mt-4 max-w-xl font-mono text-xs leading-6 text-zinc-500">
-                    {move.text || move.content}
+                    {move.displayText}
                   </p>
                 ) : null}
               </motion.article>
