@@ -15,7 +15,7 @@ export const ConsequenceOverlay = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center bg-white"
+          className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center bg-[#08080A]"
         >
           <motion.div
             initial={{ scale: 0.8, opacity: 0, filter: 'blur(20px) contrast(200%)' }}
