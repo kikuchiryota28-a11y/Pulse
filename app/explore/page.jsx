@@ -31,17 +31,25 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
       whileHover={{ y: -3 }}
       transition={{ duration: 0.35 }}
     >
-      <button
-        type="button"
+      <article
         className="explore-card-button"
+        role="button"
+        tabIndex={0}
         aria-label={`Open details for ${pulse.title}`}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           onSelect(pulse);
         }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            onSelect(pulse);
+          }
+        }}
       >
-        <article className="explore-card">
+        <div className="explore-card">
           <div className={`explore-card-media ${preview ? '' : 'empty'}`}>
             {preview && <img src={preview} alt="" loading="lazy" />}
           </div>
@@ -76,8 +84,8 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
               </button>
             </div>
           </div>
-        </article>
-      </button>
+        </div>
+      </article>
     </motion.div>
   );
 }
@@ -120,7 +128,6 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
           >
             <div className="mx-auto w-full max-w-5xl">
               <div className="pulse-detail-handle" aria-hidden="true" />
-
               <div className="flex items-start justify-between gap-5">
                 <div>
                   <div className="pulse-industrial-meta mb-3 text-[10px] text-zinc-600">PULSE DETAIL / {String(pulse.id).slice(0, 8)}</div>
