@@ -9,6 +9,7 @@ import { formatRelative, seedFromPulse, participantCount } from '../../lib/pulse
 import '../../src/pulse-design-system.css';
 import '../../src/pulse-step3.css';
 import '../../src/pulse-step4.css';
+import '../../src/pulse-step5.css';
 
 const FILTERS = [
   { id: 'TRENDING', label: 'TRENDING', icon: Flame },
@@ -24,45 +25,15 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
   const moves = pulse._moves || [];
 
   return (
-    <motion.div
-      className="explore-card-shell"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -3 }}
-      transition={{ duration: 0.35 }}
-    >
-      <article
-        className="explore-card-button"
-        role="button"
-        tabIndex={0}
-        aria-label={`Open details for ${pulse.title}`}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onSelect(pulse);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            e.stopPropagation();
-            onSelect(pulse);
-          }
-        }}
-      >
+    <motion.div className="explore-card-shell" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -3 }} transition={{ duration: 0.35 }}>
+      <article className="explore-card-button" role="button" tabIndex={0} aria-label={`Open details for ${pulse.title}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(pulse); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSelect(pulse); } }}>
         <div className="explore-card">
-          <div className={`explore-card-media ${preview ? '' : 'empty'}`}>
-            {preview && <img src={preview} alt="" loading="lazy" />}
-          </div>
+          <div className={`explore-card-media ${preview ? '' : 'empty'}`}>{preview && <img src={preview} alt="" loading="lazy" />}</div>
           <div className="explore-card-shade" aria-hidden="true" />
           <div className="explore-card-content">
             <div className="explore-card-top">
               <span className={live ? 'explore-status-pill live' : 'explore-status-pill'}>
-                {live && (
-                  <span className="explore-live-dot-wrap relative flex h-2 w-2" aria-hidden="true">
-                    <span className="explore-live-dot animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00FF87] opacity-60" />
-                    <span className="explore-live-dot-core relative inline-flex h-2 w-2 rounded-full bg-[#00FF87]" />
-                  </span>
-                )}
+                {live && <span className="explore-live-dot-wrap relative flex h-2 w-2" aria-hidden="true"><span className="explore-live-dot animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00FF87] opacity-60" /><span className="explore-live-dot-core relative inline-flex h-2 w-2 rounded-full bg-[#00FF87]" /></span>}
                 {live ? 'LIVE' : 'RESULT'}
               </span>
               <small>{formatRelative(pulse.updated_at)}</small>
@@ -71,17 +42,7 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
             <p>{pulse.intent || seed?.text || 'See where someone else takes this.'}</p>
             <div className="explore-card-bottom">
               <span>{participantCount(moves)} joined</span>
-              <button
-                type="button"
-                className="explore-card-go"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onOpen(pulse);
-                }}
-              >
-                OPEN <ArrowUpRight size={14} />
-              </button>
+              <button type="button" className="explore-card-go" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(pulse); }}>OPEN <ArrowUpRight size={14} /></button>
             </div>
           </div>
         </div>
@@ -92,7 +53,6 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
 
 function DetailDrawer({ pulse, onClose, onOpenPulse }) {
   if (!pulse) return null;
-
   const seed = seedFromPulse(pulse);
   const preview = seed?.dataUrl || null;
   const live = pulse.status === 'active';
@@ -100,32 +60,9 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
 
   return (
     <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-[90] pulse-detail-backdrop"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onClose();
-        }}
-      >
+      <motion.div className="fixed inset-0 z-[90] pulse-detail-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>
         <div className="flex min-h-full items-end justify-center">
-          <motion.section
-            role="dialog"
-            aria-modal="true"
-            aria-label={pulse.title}
-            className="pulse-detail-drawer w-full p-6 sm:p-8"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 360, damping: 32 }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          >
+          <motion.section role="dialog" aria-modal="true" aria-label={pulse.title} className="pulse-detail-drawer w-full p-6 sm:p-8" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 32 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
             <div className="mx-auto w-full max-w-5xl">
               <div className="pulse-detail-handle" aria-hidden="true" />
               <div className="flex items-start justify-between gap-5">
@@ -133,47 +70,20 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
                   <div className="pulse-industrial-meta mb-3 text-[10px] text-zinc-600">PULSE DETAIL / {String(pulse.id).slice(0, 8)}</div>
                   <h2 className="max-w-3xl text-3xl font-black tracking-[-0.055em] text-white sm:text-5xl">{pulse.title}</h2>
                 </div>
-                <button
-                  type="button"
-                  className="pulse-detail-close shrink-0"
-                  aria-label="Close details"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onClose();
-                  }}
-                >
-                  <X size={17} />
-                </button>
+                <button type="button" className="pulse-detail-close shrink-0" aria-label="Close details" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}><X size={17} /></button>
               </div>
 
               <div className="mt-6 flex flex-wrap gap-2 pulse-industrial-meta text-[9px] text-zinc-500">
-                <span className={`pulse-industrial-chip ${live ? 'active' : ''}`}>
-                  {live && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00FF87]" />}
-                  {live ? 'LIVE' : 'RESULT'}
-                </span>
+                <span className={`pulse-industrial-chip ${live ? 'active' : ''}`}>{live && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00FF87]" />}{live ? 'LIVE' : 'RESULT'}</span>
                 <span className="pulse-industrial-chip">UPDATED {formatRelative(pulse.updated_at)}</span>
               </div>
 
-              {preview && (
-                <div className="pulse-detail-media mt-6">
-                  <img src={preview} alt="" />
-                </div>
-              )}
+              {preview && <div className="pulse-detail-media"><img src={preview} alt="" /></div>}
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <div className="pulse-detail-stat">
-                  <span className="pulse-industrial-meta text-[9px] text-zinc-600">PARTICIPANTS</span>
-                  <strong>{count}</strong>
-                </div>
-                <div className="pulse-detail-stat">
-                  <span className="pulse-industrial-meta text-[9px] text-zinc-600">STATUS</span>
-                  <strong>{live ? 'ACTIVE' : 'DONE'}</strong>
-                </div>
-                <div className="pulse-detail-stat">
-                  <span className="pulse-industrial-meta text-[9px] text-zinc-600">REVISION</span>
-                  <strong>{pulse.revision ?? 0}</strong>
-                </div>
+                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">PARTICIPANTS</span><strong>{count}</strong></div>
+                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">STATUS</span><strong>{live ? 'ACTIVE' : 'DONE'}</strong></div>
+                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">REVISION</span><strong>{pulse.revision ?? 0}</strong></div>
               </div>
 
               <div className="mt-7 rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
@@ -181,29 +91,9 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
                 <p className="mt-3 max-w-3xl text-base leading-7 text-zinc-300">{pulse.intent || seed?.text || 'See where someone else takes this.'}</p>
               </div>
 
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  className="pulse-industrial-button px-5"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onClose();
-                  }}
-                >
-                  CLOSE
-                </button>
-                <button
-                  type="button"
-                  className="pulse-industrial-button primary inline-flex items-center justify-center gap-2 px-6"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onOpenPulse(pulse);
-                  }}
-                >
-                  OPEN PULSE <ArrowRight size={15} />
-                </button>
+              <div className="mt-7 flex flex-col gap-3">
+                <button type="button" className="pulse-detail-participate" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenPulse(pulse); }}>PARTICIPATE IN THIS PULSE <ArrowRight size={16} className="ml-2 inline" /></button>
+                <button type="button" className="pulse-industrial-button w-full px-5" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>CLOSE</button>
               </div>
             </div>
           </motion.section>
@@ -239,9 +129,7 @@ export default function Explore() {
 
   useEffect(() => {
     if (!selectedCard) return undefined;
-    const handleKey = (event) => {
-      if (event.key === 'Escape') setSelectedCard(null);
-    };
+    const handleKey = (event) => { if (event.key === 'Escape') setSelectedCard(null); };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [selectedCard]);
