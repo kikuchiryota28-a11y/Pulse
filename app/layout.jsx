@@ -28,8 +28,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="ja" className="dark" style={{ backgroundColor: "#08080a" }}>
-      <body className="bg-[#08080A] text-[#FAFAFA] antialiased min-h-screen" style={{ backgroundColor: "#08080a", color: "#fafafa" }}>
+    <html lang="ja" className="dark" style={{ backgroundColor: "#060608" }}>
+      <body className="bg-[#060608] text-[#FAFAFA] antialiased min-h-screen" style={{ backgroundColor: "#060608", color: "#FAFAFA" }}>
         <AuthGate>
           <PulseShell>
             <PulseMotion>{children}</PulseMotion>
