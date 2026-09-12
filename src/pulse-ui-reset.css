@@ -1,0 +1,138 @@
+:root {
+  --pulse-bg: #08080A;
+  --pulse-fg: #FAFAFA;
+  --pulse-muted: #A1A1AA;
+  --pulse-line: #27272A;
+}
+
+html,
+body {
+  background: #08080A !important;
+  color: #FAFAFA !important;
+  min-height: 100%;
+}
+
+body,
+body * {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+main,
+section,
+article,
+header,
+footer,
+nav,
+form,
+fieldset,
+.card,
+.panel,
+[class*="card"],
+[class*="panel"] {
+  background-color: transparent;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  max-width: 100%;
+  background: transparent !important;
+  color: #FAFAFA !important;
+  border-color: #27272A !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #52525B !important;
+}
+
+button {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+img,
+video,
+svg {
+  max-width: 100%;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+span,
+label,
+button,
+a {
+  overflow-wrap: anywhere;
+}
+
+form,
+fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+label {
+  position: static !important;
+  display: block;
+}
+
+input,
+textarea,
+select {
+  position: static !important;
+}
+
+/* Kill legacy light/beige surfaces and oversized rounded UI. */
+[style*="#F4E9D8"],
+[style*="#FFF8EC"],
+.bg-amber-50,
+.bg-orange-50,
+.bg-yellow-50,
+.bg-stone-50,
+.bg-neutral-50,
+.rounded-2xl,
+.rounded-3xl {
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+/* Editorial primitives. */
+.border,
+.border-2,
+.border-\[1px\] {
+  border-color: #27272A !important;
+}
+
+.text-black,
+.text-neutral-900,
+.text-zinc-950 {
+  color: #FAFAFA !important;
+}
+
+.text-neutral-500,
+.text-zinc-500 {
+  color: #71717A;
+}
+
+/* Prevent the common narrow-column Japanese failure mode. */
+.max-w-xs,
+.max-w-sm,
+.w-\[80px\],
+.w-\[120px\] {
+  min-width: 0;
+}
