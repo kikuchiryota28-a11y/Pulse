@@ -41,6 +41,7 @@ export default function PulseShell({ children, activeTab }) {
           <nav className="flex items-center gap-5 font-mono text-[10px] tracking-[0.08em]" aria-label="System actions">
             <button type="button" className="hidden text-white/45 transition-colors hover:text-white md:block">[S] SEARCH</button>
             <Link href="/activity" className="hidden text-white/45 transition-colors hover:text-white sm:block">[A] ACTIVITY</Link>
+            <Link href="/account" className="text-white/55 transition-colors hover:text-white">ACCOUNT</Link>
             <Link href="/create" className="text-[#55FF9A] transition-colors hover:text-[#8affb7]">+ START</Link>
           </nav>
         </div>
@@ -48,10 +49,10 @@ export default function PulseShell({ children, activeTab }) {
 
       <main className="relative z-10 min-h-screen px-5 pb-32 pt-24 md:px-8"><div className="mx-auto max-w-[1600px]">{children}</div></main>
 
-      <nav className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/[0.09] bg-[#111114]/75 px-2 py-2 backdrop-blur-2xl" aria-label="Primary navigation">
+      <nav className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-zinc-800 bg-zinc-900/90 px-2 py-2 backdrop-blur-md" aria-label="Primary navigation">
         {tabs.map(({ label, href }) => {
           const isActive = label === currentTab;
-          return <Link key={label} href={href} aria-current={isActive ? "page" : undefined} className={`group relative flex items-center gap-2 rounded-full px-4 py-2.5 font-mono text-[9px] tracking-[0.08em] transition-all duration-300 ${isActive ? "text-white" : "text-white/35 hover:text-white/75"}`}>{isActive && <span className="h-1.5 w-1.5 rounded-full bg-[#55FF9A] shadow-[0_0_10px_rgba(85,255,154,0.85)]" />}<span>{label}</span></Link>;
+          return <Link key={label} href={href} aria-current={isActive ? "page" : undefined} className={`group relative flex items-center gap-2 rounded-full px-4 py-2.5 font-mono text-[9px] tracking-[0.08em] transition-all duration-300 text-white ${isActive ? "" : "opacity-60 hover:opacity-100"}`}>{isActive && <span className="h-1.5 w-1.5 rounded-full bg-[#55FF9A] shadow-[0_0_10px_rgba(85,255,154,0.85)]" />}<span>{label}</span></Link>;
         })}
       </nav>
     </div>
