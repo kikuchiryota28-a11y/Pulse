@@ -1,3 +1,4 @@
+import "../src/app/globals.css";
 import "../src/pulse-social.css";
 import "../src/pulse-ui-v1.css";
 import "../src/pulse-art-direction-v2.css";
@@ -26,8 +27,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="ja" className="dark" style={{ backgroundColor: "#08080a" }}>
+      <body className="bg-[#08080A] text-[#FAFAFA] antialiased min-h-screen" style={{ backgroundColor: "#08080a", color: "#fafafa" }}>
         <AuthGate>
           <PulseShell>
             <PulseMotion>{children}</PulseMotion>
