@@ -16,36 +16,24 @@ import MoveExperienceBridge from "../components/MoveExperienceBridge";
 import AuthGate from "../components/AuthGate";
 import DeletePulseControl from "../components/DeletePulseControl";
 import AccountLauncher from "../components/AccountLauncher";
-import Link from "next/link";
-import { Home, Compass, Plus, Bell, UserRound } from "lucide-react";
+import PulseShell from "../components/PulseShell";
 
 export const metadata = {
   title: "Pulse — Change what happens next.",
   description: "A social experience where every contribution changes the next moment.",
 };
 
-function Nav() {
-  return (
-    <nav className="pulse-global-nav" aria-label="Primary">
-      <Link href="/" aria-label="Home"><Home size={17} /><span>HOME</span></Link>
-      <Link href="/explore" aria-label="Explore"><Compass size={17} /><span>EXPLORE</span></Link>
-      <Link className="create" href="/create" aria-label="Create"><Plus size={21} /></Link>
-      <Link href="/activity" aria-label="Activity"><Bell size={17} /><span>ACTIVITY</span></Link>
-      <Link href="/you" aria-label="You"><UserRound size={17} /><span>YOU</span></Link>
-    </nav>
-  );
-}
-
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
         <AuthGate>
-          <PulseMotion>{children}</PulseMotion>
+          <PulseShell>
+            <PulseMotion>{children}</PulseMotion>
+          </PulseShell>
           <MoveExperienceBridge />
           <DeletePulseControl />
           <AccountLauncher />
-          <Nav />
         </AuthGate>
       </body>
     </html>
