@@ -1,0 +1,59 @@
+/* Pulse STEP 5 — Detail media containment + feed typography */
+
+.pulse-detail-media {
+  position: relative !important;
+  width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  margin: 16px 0 !important;
+  overflow: hidden !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  background: #08080A !important;
+}
+
+.pulse-detail-media img {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+.pulse-detail-participate {
+  width: 100% !important;
+  background: #00FF87 !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  min-height: 56px !important;
+  padding: 16px !important;
+  border: 1px solid rgba(0,255,135,.40) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 0 20px rgba(0,255,135,.40) !important;
+  transition: transform .2s ease, box-shadow .2s ease !important;
+}
+
+.pulse-detail-participate:hover {
+  transform: scale(1.02) !important;
+  box-shadow: 0 0 26px rgba(0,255,135,.46) !important;
+}
+
+.explore-card-content p {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 5 !important;
+  overflow: hidden !important;
+  font-size: 15px !important;
+  line-height: 1.625 !important;
+}
+
+.pulse-detail-backdrop {
+  z-index: 90 !important;
+}
+
+.pulse-detail-drawer {
+  z-index: 91 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-detail-participate:hover { transform: none !important; }
+}
