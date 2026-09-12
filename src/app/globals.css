@@ -1,0 +1,18 @@
+:root {
+  --background: #08080a;
+  --foreground: #fafafa;
+}
+
+html,
+body {
+  background-color: #08080a !important;
+  color: #fafafa !important;
+  min-height: 100vh;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #08080a;
+    --foreground: #fafafa;
+  }
+}
