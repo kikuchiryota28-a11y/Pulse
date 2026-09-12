@@ -10,8 +10,23 @@ const participants = [
   { id: 4, image: 'https://i.pravatar.cc/80?img=56' },
 ];
 
+const PROMPT_TEXT_PATTERNS = [
+  '役割と使命',
+  'あなたは、私の人生',
+  'You are an expert Frontend Developer',
+  'You are an expert',
+];
+
+function cleanDisplayTitle(value) {
+  const title = String(value || '').trim();
+  if (!title || PROMPT_TEXT_PATTERNS.some((pattern) => title.includes(pattern))) {
+    return 'EXPLORE NEW IDEAS';
+  }
+  return title;
+}
+
 export default function PulseFeedHero({ pulse, participantCount = 18 }) {
-  const title = pulse?.title || 'WHAT IF...\n今日、知らない道を\n1本だけ歩いて帰ったら？';
+  const title = cleanDisplayTitle(pulse?.title) || 'EXPLORE NEW IDEAS';
   const updatedAt = pulse?.updated_at || pulse?.created_at;
   const age = updatedAt ? formatAge(updatedAt) : '12m ago';
   const category = pulse?.category || 'OUTSIDE';
