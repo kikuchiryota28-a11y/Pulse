@@ -1,0 +1,49 @@
+/* Final hard-dark pass: overrides legacy light component surfaces. */
+html, body, #__next {
+  background: #08080A !important;
+  color: #FAFAFA !important;
+}
+
+[class*="bg-white"],
+[class*="bg-stone"],
+[class*="bg-amber"],
+[class*="bg-orange"],
+[class*="bg-yellow"],
+[class*="bg-slate-50"],
+[class*="bg-neutral-50"],
+[style*="#F4E9D8"],
+[style*="#FFF8EC"],
+[style*="#f4f1e8"],
+[style*="#f5f5f0"],
+[style*="#f4f1ea"],
+[style*="#efe2d9"],
+[style*="rgba(247,244,238"],
+[style*="rgba(255,255,255,."],
+[style*="rgba(255,255,255,0."] {
+  background-color: #08080A !important;
+  background: #08080A !important;
+  color: #FAFAFA !important;
+}
+
+/* The account CTA was a floating obstruction; account access belongs in navigation. */
+button.secondary-button[style*="bottom: 82px"],
+button.primary-button[style*="bottom: 82px"] {
+  display: none !important;
+}
+
+/* Primary navigation: stable dark surface and high-contrast labels. */
+.pulse-shell > nav[aria-label="Primary navigation"] {
+  background: rgba(39,39,42,.90) !important;
+  border: 1px solid rgb(63,63,70) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.pulse-shell > nav[aria-label="Primary navigation"] a,
+.pulse-shell > nav[aria-label="Primary navigation"] a span {
+  color: #FFFFFF !important;
+}
+
+/* Keep intended green accent visible. */
+.pulse-shell > nav[aria-label="Primary navigation"] a .bg-\[\#55FF9A\] {
+  background: #55FF9A !important;
+}
