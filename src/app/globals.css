@@ -1,18 +1,21 @@
 :root {
-  --background: #08080a;
-  --foreground: #fafafa;
+  --background: #060608;
+  --foreground: #FAFAFA;
+  --accent: #00FF87;
+  --glass: rgba(255,255,255,0.02);
+  --line: rgba(255,255,255,0.05);
 }
 
 html,
 body {
-  background-color: #08080a !important;
-  color: #fafafa !important;
+  background-color: #060608 !important;
+  color: #FAFAFA !important;
   min-height: 100vh;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --background: #08080a;
-    --foreground: #fafafa;
+    --background: #060608;
+    --foreground: #FAFAFA;
   }
 }
