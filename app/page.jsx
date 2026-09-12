@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { participantCount } from '../lib/pulse-social';
-import { getPulseMoves, savePulseMove, subscribeToPulseMoves } from '../lib/pulse-moves';
+import { savePulseMove, subscribeToPulseMoves } from '../lib/pulse-moves';
 import PulseFeedHero from '../components/PulseFeedHero';
 import { PulseMoveCanvas } from '../components/pulse/PulseMoveCanvas';
 import PulseChainResult from '../components/pulse/PulseChainResult';
@@ -122,7 +122,12 @@ export default function Home() {
       pulse_id: featured.id,
       action: payload.text || payload.choice_id || 'MOVE RECORDED',
       text: payload.text || null,
-      content: payload.text || payload.choice_id || null,
+      content: {
+        type: payload.text ? 'text' : 'choice',
+        text: payload.text || null,
+        choice: payload.choice_id || null,
+        summary: payload.text || payload.choice_id || 'MOVE RECORDED',
+      },
       type: payload.text ? 'TEXT' : 'CHOICE',
       user: 'YOU',
       created_at: new Date().toISOString(),
@@ -130,20 +135,20 @@ export default function Home() {
       optimistic: true,
     };
 
-    // Optimistic UI: show the Move and increment the visible participant count first.
+    // Optimistic UI happens before any network work.
     setLocalMove(optimisticMove);
     setLocalParticipantCount((current) => (current ?? baseParticipantCount) + 1);
 
-    // Persistence intentionally runs in the background so the Pulse animation never waits on I/O.
+    const parentMoveId = featuredMoves.length
+      ? featuredMoves[featuredMoves.length - 1].id
+      : null;
+
+    // Persist in the background. The visual Pulse transition does not wait for the database.
     void savePulseMove({
       pulseId: featured.id,
+      parentMoveId,
       type: payload.text ? 'text' : 'choice',
-      content: {
-        type: payload.text ? 'text' : 'choice',
-        text: payload.text || null,
-        choice: payload.choice_id || null,
-        summary: payload.text || payload.choice_id || 'MOVE RECORDED',
-      },
+      content: optimisticMove.content,
       prompt: 'What did you do?',
     })
       .then((savedMove) => {
@@ -158,6 +163,7 @@ export default function Home() {
             ),
           };
         });
+        setLocalParticipantCount(null);
       })
       .catch((error) => {
         console.error('Failed to persist Pulse Move:', error);
