@@ -47,7 +47,7 @@ export default function PulseShell({ children, activeTab }) {
 
     <main className="relative z-10 min-h-screen px-5 pb-32 pt-24 md:px-8"><div className="mx-auto max-w-[1600px]">{children}</div></main>
 
-    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 h-14 px-3 bg-[#0A0A0C]/80 backdrop-blur-3xl border border-white/10 rounded-full flex items-center justify-between gap-1 z-50 shadow-2xl" aria-label="Primary navigation">
+    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 h-14 px-3 bg-[#0A0A0C]/80 backdrop-blur-3xl border border-white/10 rounded-full flex items-center justify-between gap-1 z-40 shadow-2xl" aria-label="Primary navigation">
       {tabs.map(({ label, href }) => {
         const isActive = label === currentTab;
         return <Link key={label} href={href} aria-current={isActive ? 'page' : undefined} className={`relative flex h-10 items-center justify-center rounded-full px-4 font-mono text-[10px] tracking-widest transition-colors ${isActive ? 'text-white' : 'text-zinc-400 hover:text-white'}`}>
