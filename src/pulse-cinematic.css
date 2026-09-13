@@ -1,0 +1,11 @@
+:root { color-scheme: dark; --background: #08080A; --foreground: #F5F5F5; --surface: #111114; --muted: #A1A1AA; --line: rgba(255,255,255,.07); }
+html, body { background: #08080A !important; color: #F5F5F5 !important; }
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+input, textarea, select { color: #F5F5F5 !important; background-color: transparent; }
+input::placeholder, textarea::placeholder { color: #52525B !important; }
+::selection { background: rgba(255,255,255,.16); color: #fff; }
+.pulse-studio-ambient, .pulse-studio-header, .pulse-studio-nav, .studio-ambient, .studio-header { background: #08080A !important; background-image: none !important; box-shadow: none !important; }
+.pulse-shell { background: #08080A !important; color: #F5F5F5 !important; }
+.pulse-shell a, .pulse-shell button { color: inherit; }
+.pulse-studio-header, .pulse-studio-nav { border-color: transparent !important; }
+.create-v2, .pulse-page { color: #F5F5F5; }
