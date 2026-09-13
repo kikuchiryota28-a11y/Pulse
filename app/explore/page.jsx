@@ -39,7 +39,7 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
               <small>{formatRelative(pulse.updated_at)}</small>
             </div>
             <h2>{pulse.title}</h2>
-            <p>{pulse.intent || seed?.text || 'See where someone else takes this.'}</p>
+            <p className="line-clamp-4 overflow-hidden">{pulse.intent || seed?.text || 'See where someone else takes this.'}</p>
             <div className="explore-card-bottom">
               <span>{participantCount(moves)} joined</span>
               <button type="button" className="explore-card-go" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(pulse); }}>OPEN <ArrowUpRight size={14} /></button>
@@ -60,9 +60,9 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
 
   return (
     <AnimatePresence>
-      <motion.div className="fixed inset-0 z-[90] pulse-detail-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>
+      <motion.div className="fixed inset-0 z-50 pulse-detail-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>
         <div className="flex min-h-full items-end justify-center">
-          <motion.section role="dialog" aria-modal="true" aria-label={pulse.title} className="pulse-detail-drawer w-full p-6 sm:p-8" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 32 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+          <motion.section role="dialog" aria-modal="true" aria-label={pulse.title} className="pulse-detail-drawer w-full p-6 pb-12 sm:p-8 sm:pb-12" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 32 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
             <div className="mx-auto w-full max-w-5xl">
               <div className="pulse-detail-handle" aria-hidden="true" />
               <div className="flex items-start justify-between gap-5">
@@ -78,7 +78,7 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
                 <span className="pulse-industrial-chip">UPDATED {formatRelative(pulse.updated_at)}</span>
               </div>
 
-              {preview && <div className="pulse-detail-media"><img src={preview} alt="" /></div>}
+              {preview && <div className="pulse-detail-media relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 my-4"><img src={preview} alt="" className="w-full h-full object-cover" /></div>}
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">PARTICIPANTS</span><strong>{count}</strong></div>
