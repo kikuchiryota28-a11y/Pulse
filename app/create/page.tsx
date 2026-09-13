@@ -1,32 +1,20 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useState } from 'react';
-import { ArrowUpRight, ImagePlus, Video, X } from 'lucide-react';
+import { FormEvent, useState } from 'react';
+import { ArrowRight, Check, Compass, Footprints, Sparkles } from 'lucide-react';
 
 export default function CreatePage() {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState('');
-  const [hook, setHook] = useState('');
-  const [context, setContext] = useState('');
+  const [action, setAction] = useState('');
+  const [clue, setClue] = useState('');
   const [published, setPublished] = useState(false);
+  function submit(event: FormEvent) { event.preventDefault(); if (!action.trim()) return; setPublished(true); }
 
-  function chooseMedia(event: ChangeEvent<HTMLInputElement>) {
-    const next = event.target.files?.[0];
-    if (!next || (!next.type.startsWith('image/') && !next.type.startsWith('video/'))) return;
-    setFile(next);
-    setPreview(URL.createObjectURL(next));
-    setPublished(false);
-  }
-
-  function clearMedia() { if (preview) URL.revokeObjectURL(preview); setFile(null); setPreview(''); }
-  function submit(event: FormEvent) { event.preventDefault(); if (!hook.trim()) return; setPublished(true); }
-
-  return <main className="mx-auto w-full max-w-4xl px-5 pb-24 pt-12 md:px-8 md:pt-16">
-    <header className="mb-12 max-w-xl"><p className="text-xs uppercase tracking-[0.2em] text-zinc-600">CREATE DISCOVERY</p><h1 className="mt-3 text-3xl font-medium tracking-tight text-zinc-100">Share something worth noticing.</h1><p className="mt-3 text-sm leading-6 text-zinc-500">No performance required. Add the find, give it context, and let the discovery speak for itself.</p></header>
-    <form onSubmit={submit} className="space-y-10">
-      <section><label className="mb-3 block text-xs uppercase tracking-[0.16em] text-zinc-600">Media</label>{preview ? <div className="relative overflow-hidden rounded-2xl bg-[#111114]"><button type="button" onClick={clearMedia} className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-zinc-300" aria-label="Remove media"><X size={16} /></button>{file?.type.startsWith('video/') ? <video src={preview} controls className="max-h-[32rem] w-full object-contain" /> : <img src={preview} alt="Preview" className="max-h-[32rem] w-full object-contain" />}</div> : <label className="flex min-h-64 cursor-pointer flex-col items-center justify-center rounded-2xl bg-[#111114] transition-colors hover:bg-[#151518]"><div className="mb-4 flex gap-3 text-zinc-500"><ImagePlus size={22} /><Video size={22} /></div><span className="text-sm text-zinc-300">Add an image or video</span><span className="mt-2 text-xs text-zinc-600">A real moment, place, object, or phenomenon.</span><input type="file" accept="image/*,video/*" onChange={chooseMedia} className="sr-only" /></label>}</section>
-      <section className="space-y-8"><div><label htmlFor="hook" className="mb-3 block text-xs uppercase tracking-[0.16em] text-zinc-600">Hook</label><input id="hook" value={hook} onChange={(e) => setHook(e.target.value)} maxLength={140} placeholder="What made you stop and look?" className="w-full border-0 border-b border-white/[0.08] bg-transparent px-0 py-4 text-xl text-zinc-100 outline-none placeholder:text-zinc-700 focus:border-white/[0.2]" /></div><div><label htmlFor="context" className="mb-3 block text-xs uppercase tracking-[0.16em] text-zinc-600">Context</label><textarea id="context" value={context} onChange={(e) => setContext(e.target.value)} maxLength={1000} rows={5} placeholder="Where is it? What is happening? Why is it interesting?" className="w-full resize-none rounded-2xl bg-[#111114] px-5 py-4 text-sm leading-6 text-zinc-200 outline-none placeholder:text-zinc-700 focus:ring-1 focus:ring-white/[0.08]" /></div></section>
-      <footer className="flex items-center justify-between pt-2"><span className="text-xs text-zinc-600">{published ? 'Discovery ready to connect to publishing.' : 'You can change anything before sharing.'}</span><button type="submit" disabled={!hook.trim()} className="flex items-center gap-2 text-sm font-medium text-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-700">Share discovery <ArrowUpRight size={16} /></button></footer>
+  return <main className="mx-auto w-full max-w-5xl px-5 pb-28 pt-8 md:px-8 md:pt-12">
+    <header className="border-b border-white/[.07] pb-10"><div className="flex items-center gap-3 text-[10px] uppercase tracking-[.2em] text-zinc-500"><span className="text-zinc-200">PULSE / START</span><span>Build the next handoff</span></div><div className="mt-8 max-w-4xl"><p className="text-[10px] uppercase tracking-[.2em] text-zinc-600">A Pulse begins with an action</p><h1 className="mt-4 text-[clamp(2.8rem,6vw,5.8rem)] font-medium leading-[.94] tracking-[-.055em] text-zinc-50">What do you want<br/><span className="text-zinc-500">the next person to do?</span></h1><p className="mt-7 max-w-xl text-sm leading-7 text-zinc-400">Not a post. Not a caption. Give someone a small reason to step outside their normal routine.</p></div></header>
+    <form onSubmit={submit} className="mt-12 space-y-12">
+      <section className="rounded-[28px] border border-white/[.07] bg-[#101013] p-6 sm:p-9"><div className="flex items-center gap-2 text-[10px] uppercase tracking-[.18em] text-zinc-500"><Footprints size={13}/> Step 01 · The action</div><label htmlFor="action" className="mt-7 block text-2xl font-medium tracking-tight text-zinc-100">What should they actually do?</label><textarea id="action" value={action} onChange={e => { setAction(e.target.value); setPublished(false); }} maxLength={280} rows={4} autoFocus placeholder="Find a hidden detail in your town and leave the next clue..." className="mt-5 w-full resize-none rounded-2xl bg-black/20 p-5 text-lg leading-8 text-zinc-100 outline-none ring-1 ring-white/[.06] placeholder:text-zinc-700 focus:ring-white/[.14]" /><div className="mt-3 flex justify-between text-[10px] uppercase tracking-[.16em] text-zinc-600"><span>Make it specific enough to try</span><span>{action.length}/280</span></div></section>
+      <section className="grid gap-6 md:grid-cols-2"><div className="rounded-[24px] border border-white/[.07] bg-[#101013] p-6"><div className="flex items-center gap-2 text-[10px] uppercase tracking-[.18em] text-zinc-500"><Compass size={13}/> Step 02 · The clue</div><label htmlFor="clue" className="mt-6 block text-lg font-medium text-zinc-200">What should the next person know?</label><textarea id="clue" value={clue} onChange={e => setClue(e.target.value)} rows={5} maxLength={500} placeholder="Give them enough context to begin. Keep the discovery alive." className="mt-4 w-full resize-none bg-transparent text-sm leading-7 text-zinc-300 outline-none placeholder:text-zinc-700" /></div><div className="rounded-[24px] border border-white/[.07] bg-[#101013] p-6"><div className="flex items-center gap-2 text-[10px] uppercase tracking-[.18em] text-zinc-500"><Sparkles size={13}/> Step 03 · The handoff</div><p className="mt-6 text-lg font-medium text-zinc-200">Your Pulse becomes real when someone else continues it.</p><div className="mt-5 rounded-2xl bg-white/[.035] p-4 text-sm leading-6 text-zinc-400">You → Next Person → Their discovery → Next clue</div><p className="mt-5 text-xs leading-5 text-zinc-600">The person who joins can respond with what they found and create the next action.</p></div></section>
+      <footer className="flex flex-wrap items-center justify-between gap-5 border-t border-white/[.07] pt-7"><span className="text-xs text-zinc-600">{published ? 'Pulse staged. The handoff can begin.' : 'Keep it small. Make it possible today.'}</span><button type="submit" disabled={!action.trim()} className="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-6 py-3 text-xs font-semibold uppercase tracking-[.14em] text-zinc-950 disabled:opacity-30">{published ? <Check size={15}/> : null}{published ? 'Pulse ready' : 'Start Pulse'} <ArrowRight size={15}/></button></footer>
     </form>
   </main>;
 }
