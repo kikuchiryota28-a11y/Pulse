@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRecommendationClient } from '@/lib/recommendation/serverClient';
-import { calculateDiscoveryScore, freshnessScore, repetitionPenalty, type DiscoveryDistance, type ScoredCandidate } from '@/lib/recommendation/scorer';
+import { calculateDiscoveryScore, repetitionPenalty, type DiscoveryDistance, type ScoredCandidate } from '@/lib/recommendation/scorer';
 import type { Media, Post, Profile } from '@/types/pulse';
 
 type EventRow = { post_id: string; event_type: string; action_weight: number; session_id: string | null; created_at: string };
@@ -14,7 +14,6 @@ const DISTANCE_TARGETS: Array<{ distances: DiscoveryDistance[]; ratio: number }>
 ];
 
 function clamp(value: number) { return Math.max(0, Math.min(1, value)); }
-function normalize(value: number, max: number) { return max <= 0 ? 0 : clamp(value / max); }
 
 function selectWithDistanceMix(candidates: ScoredCandidate[], limit: number) {
   const selected: ScoredCandidate[] = [];
@@ -100,7 +99,6 @@ export async function GET(request: NextRequest) {
 
   const maxInterest = Math.max(1, ...Array.from(postEventWeights.values()).map(Math.abs));
   const maxTopicWeight = Math.max(1, ...Array.from(topicWeights.values()).map(Math.abs));
-  const maxAge = Math.max(1, ...rows.map((post) => Math.max(1, Date.now() - new Date(post.created_at ?? Date.now()).getTime())));
 
   const scored: ScoredCandidate[] = rows
     .filter((post) => !blocked.has(post.author_id) && !skipped.has(post.id))
@@ -115,7 +113,8 @@ export async function GET(request: NextRequest) {
       const novelty = clamp(1 - postInterest);
       const distance = Math.max(0, Math.min(5, Math.round(post.discovery_distance ?? 3))) as DiscoveryDistance;
       const serendipity = clamp(distance / 5) * (1 - interest * 0.35);
-      const freshness = clamp(1 - (Date.now() - new Date(post.created_at ?? Date.now()).getTime()) / maxAge);
+      const ageHours = Math.max(0, (Date.now() - new Date(post.created_at ?? Date.now()).getTime()) / 3_600_000);
+      const freshness = Math.exp(-ageHours / (24 * 7));
       const quality = clamp(Number(post.quality_score ?? 0.5));
       const discoveryScore = calculateDiscoveryScore({
         interest: { score: interest },
