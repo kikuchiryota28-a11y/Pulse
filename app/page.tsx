@@ -1,20 +1,19 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Activity, ArrowDown, Radio, Sparkles } from 'lucide-react';
+import { Compass, Plus, Users } from 'lucide-react';
 import { mockPulseData } from '@/data/mockPulseData';
-import { ActionCard } from '@/components/discover/ActionCard';
+import { DiscoveryCard } from '@/components/discover/DiscoveryCard';
 import DetailModal from '@/components/discover/DetailModal';
 import type { Post } from '@/types/pulse';
 
-const filters = ['ALL', 'CITY', 'PEOPLE', 'ROUTINE'];
+const filters = ['ALL', 'CITY', 'PEOPLE', 'EVERYDAY'];
 
 function getCategory(post: Post) {
   const text = `${post.title} ${post.description} ${post.context ?? ''}`.toLowerCase();
-  if (text.includes('stranger') || text.includes('people') || text.includes('question')) return 'PEOPLE';
-  if (text.includes('route') || text.includes('ordinary') || text.includes('routine')) return 'ROUTINE';
-  if (text.includes('town') || text.includes('city') || text.includes('place')) return 'CITY';
-  return 'CITY';
+  if (text.includes('friend') || text.includes('people') || text.includes('customer')) return 'PEOPLE';
+  if (text.includes('tokyo') || text.includes('koenji') || text.includes('shinjuku') || text.includes('yokohama')) return 'CITY';
+  return 'EVERYDAY';
 }
 
 export default function DiscoverPage() {
@@ -22,36 +21,36 @@ export default function DiscoverPage() {
   const [filter, setFilter] = useState('ALL');
   const visible = useMemo(() => mockPulseData.filter((post) => filter === 'ALL' || getCategory(post) === filter), [filter]);
 
-  return <main className="w-full pb-8">
-    <header className="mb-12 border-b border-white/[.07] pb-12 lg:mb-16 lg:pb-16">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[9px] uppercase tracking-[.22em] text-white/30">
-        <span className="inline-flex items-center gap-2 text-[#00FF87]"><span className="h-1.5 w-1.5 rounded-full bg-[#00FF87] shadow-[0_0_12px_#00FF87]" />SYS.RDY // LIVE SIGNAL</span>
-        <span className="h-px w-10 bg-white/10" />
-        <span>{mockPulseData.length} ACTIVE PULSES</span>
-        <span className="inline-flex items-center gap-1"><Activity size={11} /> NETWORK ONLINE</span>
+  return <main className="w-full pb-16">
+    <header className="mb-8 border-b border-white/[.06] pb-8 lg:mb-10 lg:pb-10">
+      <div className="flex items-center gap-2 text-[11px] font-medium text-white/30"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />PULSE COMMUNITY <span className="text-white/15">·</span> {mockPulseData.length} finds</div>
+      <div className="mt-7 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-2xl">
+          <h1 className="text-[clamp(2.8rem,7vw,5.8rem)] font-bold leading-[.9] tracking-[-.065em] text-white">What did you find?</h1>
+          <p className="mt-5 max-w-xl text-base leading-7 text-white/40 sm:text-lg">A place for people to share the small things they notice — then see what everyone else is finding.</p>
+        </div>
+        <a href="/create" className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/90"><Plus size={16} /> Share a discovery</a>
       </div>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[1.18fr_.82fr] lg:items-end">
-        <div>
-          <h1 className="max-w-5xl text-[clamp(4rem,9vw,8.5rem)] font-black leading-[.8] tracking-[-.075em] text-white">
-            Find a question.<br />
-            <span className="text-white/20">Change something.</span>
-          </h1>
-        </div>
-        <div className="max-w-xl lg:pb-2">
-          <p className="text-base leading-8 text-white/45 sm:text-lg">PULSE turns small questions into real-world actions. Follow a signal, do the next thing, then leave the next clue for someone else.</p>
-          <div className="mt-6 flex items-center gap-3 font-mono text-[9px] uppercase tracking-[.2em] text-white/30"><Sparkles size={13} className="text-[#00FF87]" /> THE HANDOFF IS THE POINT.</div>
-        </div>
-      </div>
-
-      <div className="mt-10 flex flex-wrap items-center gap-2">
-        {filters.map((item) => <button key={item} type="button" onClick={() => setFilter(item)} className={`rounded-full px-4 py-2 font-mono text-[9px] tracking-[.18em] transition ${filter === item ? 'bg-[#00FF87] text-black' : 'border border-white/[.07] bg-white/[.02] text-white/35 hover:bg-white/[.05] hover:text-white'}`}>{item}</button>)}
-        <span className="ml-auto hidden items-center gap-2 font-mono text-[9px] tracking-[.18em] text-white/20 md:flex"><Radio size={12} /> REAL-WORLD SIGNALS</span>
+      <div className="mt-8 flex items-center gap-2 overflow-x-auto pb-1">
+        {filters.map((item) => <button key={item} type="button" onClick={() => setFilter(item)} className={`shrink-0 rounded-full px-4 py-2 text-xs transition ${filter === item ? 'bg-white text-black' : 'bg-white/[.04] text-white/35 hover:bg-white/[.08] hover:text-white'}`}>{item === 'ALL' ? 'For you' : item}</button>)}
+        <span className="ml-auto hidden items-center gap-1.5 text-xs text-white/20 md:flex"><Users size={13} /> people, not publishers</span>
       </div>
     </header>
 
-    <section aria-label="Active Pulses" className="space-y-6">{visible.map((post, index) => <ActionCard key={post.id} post={post} index={index} onOpen={setSelected} />)}</section>
-    <div className="mt-14 flex justify-center text-white/15"><ArrowDown size={18} /></div>
+    {visible.length > 0 ? (
+      <section aria-label="Community discoveries" className="mx-auto grid max-w-4xl gap-5">
+        {visible.map((post, index) => <DiscoveryCard key={post.id} post={post} index={index} onOpen={setSelected} />)}
+      </section>
+    ) : (
+      <section className="mx-auto flex max-w-xl flex-col items-center rounded-[28px] border border-dashed border-white/10 bg-white/[.02] px-6 py-20 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/[.06] text-white/60"><Compass size={20} /></div>
+        <h2 className="mt-5 text-xl font-semibold text-white">Nothing here yet.</h2>
+        <p className="mt-2 text-sm leading-6 text-white/35">Be the first person to share something you found, noticed, or want someone else to explore.</p>
+        <a href="/create" className="mt-6 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/90">Share your first discovery</a>
+      </section>
+    )}
+
     <DetailModal post={selected} onClose={() => setSelected(null)} />
   </main>;
 }
