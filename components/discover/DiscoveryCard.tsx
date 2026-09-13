@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import type { Post } from '@/types/pulse';
+import { AsyncMedia } from '@/components/ui/AsyncMedia';
 
 interface DiscoveryCardProps {
   post: Post;
@@ -27,11 +28,15 @@ export function DiscoveryCard({ post, index = 0, onOpen }: DiscoveryCardProps) {
       onClick={() => onOpen?.(post)}
     >
       <div className="relative overflow-hidden rounded-2xl bg-[#111114]">
-        <motion.div whileHover={{ scale: 1.025 }} transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }} className="aspect-[16/10] overflow-hidden">
+        <motion.div whileHover={{ scale: 1.025 }} transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}>
           {media?.type === 'video' ? (
-            <video src={media.url} poster={media.thumbnail_url ?? undefined} muted playsInline loop autoPlay className="h-full w-full object-cover" />
+            <div className="relative aspect-[16/10] overflow-hidden bg-[#111114]">
+              <video src={media.url} poster={media.thumbnail_url ?? undefined} muted playsInline loop autoPlay preload="metadata" className="absolute inset-0 h-full w-full object-cover" />
+            </div>
+          ) : media?.url ? (
+            <AsyncMedia src={media.url} alt={media.alt ?? post.title} width={media.width} height={media.height} />
           ) : (
-            <img src={media?.url} alt={media?.alt ?? post.title} className="h-full w-full object-cover" />
+            <div className="aspect-[16/10] bg-[#111114]" />
           )}
         </motion.div>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#08080A]/55 via-transparent to-transparent opacity-80" />
@@ -45,7 +50,7 @@ export function DiscoveryCard({ post, index = 0, onOpen }: DiscoveryCardProps) {
 
       <div className="flex items-center justify-between gap-4 px-1 pt-4">
         <div className="flex min-w-0 items-center gap-3">
-          {author?.avatar_url ? <img src={author.avatar_url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" /> : <div className="h-7 w-7 shrink-0 rounded-full bg-[#111114]" />}
+          {author?.avatar_url ? <img src={author.avatar_url} alt="" loading="lazy" decoding="async" className="h-7 w-7 shrink-0 rounded-full object-cover" /> : <div className="h-7 w-7 shrink-0 rounded-full bg-[#111114]" />}
           <span className="truncate text-sm font-medium text-[#D4D4D8]">{author?.display_name ?? 'PULSE'}</span>
         </div>
         <span className="shrink-0 text-[11px] uppercase tracking-[0.14em] text-[#71717A]">Discover {String(index + 1).padStart(2, '0')}</span>
