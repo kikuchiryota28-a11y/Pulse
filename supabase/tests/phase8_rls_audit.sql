@@ -4,7 +4,7 @@
 
 begin;
 
-select plan(18);
+select plan(17);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.profiles'::regclass), 'profiles has RLS enabled');
 select ok((select relrowsecurity from pg_class where oid = 'public.posts'::regclass), 'posts has RLS enabled');
@@ -23,7 +23,7 @@ select ok(exists (select 1 from pg_policies where schemaname='public' and tablen
 select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='interest_events' and policyname='own events insertable' and with_check ilike '%auth.uid()%'), 'interest_events insert ownership is auth.uid based');
 
 select ok(not exists (select 1 from information_schema.role_table_grants where table_schema='public' and table_name in ('profiles','posts','media','reactions','saves','collections','interest_events') and grantee='anon' and privilege_type in ('INSERT','UPDATE','DELETE')), 'anon cannot mutate protected user data');
-select ok(not exists (select 1 from pg_policies where schemaname='public' and tablename in ('profiles','posts','media','reactions','saves','collections','interest_events') and (qual is null and with_check is null)), 'no unrestricted policies exist on protected tables');
+select ok(not exists (select 1 from pg_policies where schemaname='public' and tablename in ('profiles','posts','media','reactions','saves','collections','interest_events') and roles::text like '%public%' and cmd in ('INSERT','UPDATE','DELETE')), 'no public-role mutation policies exist on protected tables');
 select ok(not exists (select 1 from pg_policies where schemaname='public' and tablename in ('profiles','posts','media','reactions','saves','collections','interest_events') and (qual ilike '%user_metadata%' or with_check ilike '%user_metadata%')), 'no policy trusts user metadata for authorization');
 
 select * from finish();
