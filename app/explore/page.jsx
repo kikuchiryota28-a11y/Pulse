@@ -20,6 +20,34 @@ const FILTERS = [
 
 const SPRING = { type: 'spring', stiffness: 300, damping: 25 };
 
+function AnimatedNumber({ value }) {
+  const [display, setDisplay] = useState(Number(value) || 0);
+
+  useEffect(() => {
+    const target = Number(value) || 0;
+    const startValue = display;
+    const start = performance.now();
+    const duration = 460;
+    let frame;
+
+    const tick = (now) => {
+      const progress = Math.min(1, (now - start) / duration);
+      if (progress >= 1) {
+        setDisplay(target);
+      } else {
+        const ceiling = Math.max(target, startValue + 8);
+        setDisplay(Math.floor(Math.random() * (ceiling + 1)));
+        frame = requestAnimationFrame(tick);
+      }
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  return <span className="pulse-shuffle-number tabular-nums" aria-label={String(value)}>{display}</span>;
+}
+
 function ExploreCard({ pulse, onSelect, onOpen }) {
   const seed = seedFromPulse(pulse);
   const preview = seed?.dataUrl || null;
@@ -29,7 +57,7 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
   return (
     <motion.div className="explore-card-shell" initial={{ opacity: 0, y: 18, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} whileHover={{ y: -6, scale: 1.008 }} whileTap={{ scale: 0.985 }} transition={SPRING}>
       <motion.article layoutId={`pulse-card-${pulse.id}`} className="explore-card-button" role="button" tabIndex={0} aria-label={`Open details for ${pulse.title}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(pulse); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSelect(pulse); } }}>
-        <div className="explore-card">
+        <div className="explore-card pulse-ultra-border">
           <div className={`explore-card-media ${preview ? '' : 'empty'}`}>{preview && <img src={preview} alt="" loading="lazy" />}</div>
           <div className="explore-card-shade" aria-hidden="true" />
           <div className="explore-card-content">
@@ -43,7 +71,7 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
             <h2>{pulse.title}</h2>
             <p className="line-clamp-4 overflow-hidden">{pulse.intent || seed?.text || 'See where someone else takes this.'}</p>
             <div className="explore-card-bottom">
-              <span>{participantCount(moves)} joined</span>
+              <span><AnimatedNumber value={participantCount(moves)} /> joined</span>
               <button type="button" className="explore-card-go" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(pulse); }}>OPEN <ArrowUpRight size={14} /></button>
             </div>
           </div>
@@ -64,7 +92,7 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
     <AnimatePresence>
       <motion.div className="fixed inset-0 z-50 pulse-detail-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>
         <div className="flex min-h-full items-end justify-center">
-          <motion.section layoutId={`pulse-card-${pulse.id}`} role="dialog" aria-modal="true" aria-label={pulse.title} className="pulse-detail-drawer w-full p-6 pb-12 sm:p-8 sm:pb-12" initial={{ y: '100%', scale: 0.98, opacity: 0.98 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: '100%', scale: 0.98, opacity: 0 }} transition={SPRING} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+          <motion.section layoutId={`pulse-card-${pulse.id}`} role="dialog" aria-modal="true" aria-label={pulse.title} className="pulse-detail-drawer pulse-ultra-border w-full p-6 pb-12 sm:p-8 sm:pb-12" initial={{ y: '100%', scale: 0.98, opacity: 0.98 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: '100%', scale: 0.98, opacity: 0 }} transition={SPRING} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
             <div className="mx-auto w-full max-w-5xl">
               <div className="pulse-detail-handle" aria-hidden="true" />
               <div className="flex items-start justify-between gap-5">
@@ -85,9 +113,9 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
               {preview && <div className="pulse-detail-media relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 my-4"><img src={preview} alt="" className="w-full h-full object-cover" /></div>}
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">PARTICIPANTS</span><strong className="tabular-nums">{count}</strong></div>
+                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">PARTICIPANTS</span><strong><AnimatedNumber value={count} /></strong></div>
                 <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">STATUS</span><strong>{live ? 'ACTIVE' : 'DONE'}</strong></div>
-                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">REVISION</span><strong className="tabular-nums">{pulse.revision ?? 0}</strong></div>
+                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">REVISION</span><strong><AnimatedNumber value={pulse.revision ?? 0} /></strong></div>
               </div>
 
               <div className="mt-7 rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
