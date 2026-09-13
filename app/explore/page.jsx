@@ -18,6 +18,8 @@ const FILTERS = [
   { id: 'ALL', label: 'ALL', icon: Sparkles },
 ];
 
+const SPRING = { type: 'spring', stiffness: 300, damping: 25 };
+
 function ExploreCard({ pulse, onSelect, onOpen }) {
   const seed = seedFromPulse(pulse);
   const preview = seed?.dataUrl || null;
@@ -25,8 +27,8 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
   const moves = pulse._moves || [];
 
   return (
-    <motion.div className="explore-card-shell" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -3 }} transition={{ duration: 0.35 }}>
-      <article className="explore-card-button" role="button" tabIndex={0} aria-label={`Open details for ${pulse.title}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(pulse); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSelect(pulse); } }}>
+    <motion.div className="explore-card-shell" initial={{ opacity: 0, y: 18, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} whileHover={{ y: -6, scale: 1.008 }} whileTap={{ scale: 0.985 }} transition={SPRING}>
+      <motion.article layoutId={`pulse-card-${pulse.id}`} className="explore-card-button" role="button" tabIndex={0} aria-label={`Open details for ${pulse.title}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(pulse); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSelect(pulse); } }}>
         <div className="explore-card">
           <div className={`explore-card-media ${preview ? '' : 'empty'}`}>{preview && <img src={preview} alt="" loading="lazy" />}</div>
           <div className="explore-card-shade" aria-hidden="true" />
@@ -46,7 +48,7 @@ function ExploreCard({ pulse, onSelect, onOpen }) {
             </div>
           </div>
         </div>
-      </article>
+      </motion.article>
     </motion.div>
   );
 }
@@ -60,9 +62,9 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
 
   return (
     <AnimatePresence>
-      <motion.div className="fixed inset-0 z-50 pulse-detail-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>
+      <motion.div className="fixed inset-0 z-50 pulse-detail-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>
         <div className="flex min-h-full items-end justify-center">
-          <motion.section role="dialog" aria-modal="true" aria-label={pulse.title} className="pulse-detail-drawer w-full p-6 pb-12 sm:p-8 sm:pb-12" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 32 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+          <motion.section layoutId={`pulse-card-${pulse.id}`} role="dialog" aria-modal="true" aria-label={pulse.title} className="pulse-detail-drawer w-full p-6 pb-12 sm:p-8 sm:pb-12" initial={{ y: '100%', scale: 0.98, opacity: 0.98 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: '100%', scale: 0.98, opacity: 0 }} transition={SPRING} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
             <div className="mx-auto w-full max-w-5xl">
               <div className="pulse-detail-handle" aria-hidden="true" />
               <div className="flex items-start justify-between gap-5">
@@ -70,20 +72,22 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
                   <div className="pulse-industrial-meta mb-3 text-[10px] text-zinc-600">PULSE DETAIL / {String(pulse.id).slice(0, 8)}</div>
                   <h2 className="max-w-3xl text-3xl font-black tracking-[-0.055em] text-white sm:text-5xl">{pulse.title}</h2>
                 </div>
-                <button type="button" className="pulse-detail-close shrink-0" aria-label="Close details" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}><X size={17} /></button>
+                <motion.button type="button" whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }} transition={SPRING} className="pulse-detail-close shrink-0" aria-label="Close details" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}><X size={17} /></motion.button>
               </div>
 
+              <div className="pulse-marquee" aria-hidden="true"><div className="pulse-marquee-track"><span>SYS.RDY // LIVE SIGNAL // PULSE NETWORK // 00FF87 // SPATIAL UI // NEXT STATE //</span><span>SYS.RDY // LIVE SIGNAL // PULSE NETWORK // 00FF87 // SPATIAL UI // NEXT STATE //</span></div></div>
+
               <div className="mt-6 flex flex-wrap gap-2 pulse-industrial-meta text-[9px] text-zinc-500">
-                <span className={`pulse-industrial-chip ${live ? 'active' : ''}`}>{live && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00FF87]" />}{live ? 'LIVE' : 'RESULT'}</span>
+                <span className={`pulse-industrial-chip ${live ? 'active' : ''}`}>{live && <span className="inline-block w-2 h-2 rounded-full bg-[#00FF87] animate-pulse mr-2 shadow-[0_0_10px_#00FF87]" />}{live ? 'LIVE' : 'RESULT'}</span>
                 <span className="pulse-industrial-chip">UPDATED {formatRelative(pulse.updated_at)}</span>
               </div>
 
               {preview && <div className="pulse-detail-media relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 my-4"><img src={preview} alt="" className="w-full h-full object-cover" /></div>}
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">PARTICIPANTS</span><strong>{count}</strong></div>
+                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">PARTICIPANTS</span><strong className="tabular-nums">{count}</strong></div>
                 <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">STATUS</span><strong>{live ? 'ACTIVE' : 'DONE'}</strong></div>
-                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">REVISION</span><strong>{pulse.revision ?? 0}</strong></div>
+                <div className="pulse-detail-stat"><span className="pulse-industrial-meta text-[9px] text-zinc-600">REVISION</span><strong className="tabular-nums">{pulse.revision ?? 0}</strong></div>
               </div>
 
               <div className="mt-7 rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
@@ -92,9 +96,10 @@ function DetailDrawer({ pulse, onClose, onOpenPulse }) {
               </div>
 
               <div className="mt-7 flex flex-col gap-3">
-                <button type="button" className="pulse-detail-participate" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenPulse(pulse); }}>PARTICIPATE IN THIS PULSE <ArrowRight size={16} className="ml-2 inline" /></button>
-                <button type="button" className="pulse-industrial-button w-full px-5" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>CLOSE</button>
+                <motion.button type="button" whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }} transition={SPRING} className="pulse-detail-participate" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenPulse(pulse); }}>PARTICIPATE IN THIS PULSE <ArrowRight size={16} className="ml-2 inline" /></motion.button>
+                <motion.button type="button" whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} transition={SPRING} className="pulse-industrial-button w-full px-5" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>CLOSE</motion.button>
               </div>
+              <div className="h-8" aria-hidden="true" />
             </div>
           </motion.section>
         </div>
@@ -160,7 +165,7 @@ export default function Explore() {
       <main className="pulse-page explore-v2">
         <header className="pulse-page-header"><div><div className="pulse-page-kicker">DISCOVER</div><h1 className="pulse-page-title">Find a Pulse<br />that pulls you in.</h1></div></header>
         <div className="explore-search"><Search size={16} /><input aria-label="Search Pulses" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search ideas, places, weird things…" /></div>
-        <div className="explore-filter-row">{FILTERS.map(({ id, label, icon: Icon }) => <button key={id} className={filter === id ? 'active' : ''} onClick={() => setFilter(id)} aria-pressed={filter === id}><Icon size={13} />{label}</button>)}</div>
+        <div className="explore-filter-row">{FILTERS.map(({ id, label, icon: Icon }) => <motion.button key={id} whileHover={{ y: -2, scale: 1.02 }} whileTap={{ scale: 0.95 }} transition={SPRING} className={filter === id ? 'active' : ''} onClick={() => setFilter(id)} aria-pressed={filter === id}><Icon size={13} />{label}</motion.button>)}</div>
         <div className="explore-meta"><span>{loading ? 'LOADING' : `${filtered.length} FOUND`}</span><span>OPEN ONE. SEE WHAT HAPPENS.</span></div>
         {loading ? <div className="explore-grid"><div className="pulse-skeleton" /><div className="pulse-skeleton" /><div className="pulse-skeleton" /></div> : filtered.length === 0 ? <div className="pulse-empty-state precision-card pad">No match yet. Try a stranger idea.</div> : <div className="explore-grid">{filtered.map((p) => <ExploreCard key={p.id} pulse={p} onSelect={setSelectedCard} onOpen={setSelectedCard} />)}</div>}
       </main>
