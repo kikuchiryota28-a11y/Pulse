@@ -139,16 +139,22 @@
   color: #fff !important;
 }
 
+/* STEP 6: media is a strict 16:9 frame with no legacy oversized surface. */
 .pulse-detail-media {
+  position: relative !important;
+  width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  margin: 16px 0 !important;
   overflow: hidden !important;
-  border-radius: 24px !important;
-  border: 1px solid rgba(255,255,255,.08) !important;
-  background: #08080A !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  background: transparent !important;
 }
 
 .pulse-detail-media img {
   width: 100% !important;
-  max-height: 340px !important;
+  height: 100% !important;
+  max-height: none !important;
   object-fit: cover !important;
   display: block !important;
 }
@@ -157,6 +163,6 @@
   .pulse-detail-drawer {
     max-height: 92vh !important;
     border-radius: 26px 26px 0 0 !important;
-    padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(48px + env(safe-area-inset-bottom)) !important;
   }
 }
