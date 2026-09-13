@@ -37,6 +37,10 @@ export interface Post {
   handoff_count?: number;
   created_at?: string;
   updated_at?: string;
+  reaction_counts?: Partial<Record<ReactionType, number>>;
+  comment_count?: number;
+  save_count?: number;
+  category?: string;
 }
 
 export interface Reaction {
