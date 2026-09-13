@@ -30,6 +30,11 @@ export interface Post {
   visibility: Visibility;
   media: Media[];
   author?: Profile;
+  pulse_status?: 'active' | 'completed';
+  pulse_number?: number;
+  action?: string | null;
+  handoff_from?: Profile | null;
+  handoff_count?: number;
   created_at?: string;
   updated_at?: string;
 }
