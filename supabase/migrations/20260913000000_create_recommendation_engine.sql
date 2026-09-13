@@ -13,67 +13,30 @@ create table if not exists public.posts (
 );
 
 create table if not exists public.media (
-  id uuid primary key default gen_random_uuid(),
-  post_id uuid not null references public.posts(id) on delete cascade,
-  type text not null check (type in ('image','video')),
-  url text not null,
-  thumbnail_url text,
-  width integer,
-  height integer,
-  alt text
+  id uuid primary key default gen_random_uuid(), post_id uuid not null references public.posts(id) on delete cascade,
+  type text not null check (type in ('image','video')), url text not null, thumbnail_url text, width integer, height integer, alt text
 );
-
 create table if not exists public.interest_events (
-  id uuid primary key default gen_random_uuid(),
-  user_id text not null,
-  post_id uuid not null references public.posts(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(), user_id text not null, post_id uuid not null references public.posts(id) on delete cascade,
   event_type text not null check (event_type in ('impression','view','dwell_long','complete','skip','save','share')),
-  session_id text,
-  dwell_ms integer,
-  action_weight real not null default 0,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
+  session_id text, dwell_ms integer, action_weight real not null default 0, metadata jsonb not null default '{}'::jsonb, created_at timestamptz not null default now()
 );
-
 create table if not exists public.saves (
-  user_id text not null,
-  post_id uuid not null references public.posts(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (user_id, post_id)
+  user_id text not null, post_id uuid not null references public.posts(id) on delete cascade, created_at timestamptz not null default now(), primary key (user_id, post_id)
 );
-
 create table if not exists public.reactions (
-  user_id text not null,
-  post_id uuid not null references public.posts(id) on delete cascade,
-  type text not null check (type in ('loved','mind_blown','explore','learned')),
-  created_at timestamptz not null default now(),
-  primary key (user_id, post_id, type)
+  user_id text not null, post_id uuid not null references public.posts(id) on delete cascade,
+  type text not null check (type in ('loved','mind_blown','explore','learned')), created_at timestamptz not null default now(), primary key (user_id, post_id, type)
 );
-
 create table if not exists public.follows (
-  follower_id text not null,
-  following_id text not null,
-  created_at timestamptz not null default now(),
-  primary key (follower_id, following_id),
-  check (follower_id <> following_id)
+  follower_id text not null, following_id text not null, created_at timestamptz not null default now(), primary key (follower_id, following_id), check (follower_id <> following_id)
 );
-
 create table if not exists public.collections (
-  id uuid primary key default gen_random_uuid(),
-  owner_id text not null,
-  name text not null,
-  description text,
-  visibility text not null default 'private' check (visibility in ('public','unlisted','private')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  id uuid primary key default gen_random_uuid(), owner_id text not null, name text not null, description text,
+  visibility text not null default 'private' check (visibility in ('public','unlisted','private')), created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
-
 create table if not exists public.blocks (
-  user_id text not null,
-  blocked_user_id text not null,
-  created_at timestamptz not null default now(),
-  primary key (user_id, blocked_user_id),
-  check (user_id <> blocked_user_id)
+  user_id text not null, blocked_user_id text not null, created_at timestamptz not null default now(), primary key (user_id, blocked_user_id), check (user_id <> blocked_user_id)
 );
 
 create index if not exists posts_distance_idx on public.posts(discovery_distance);
@@ -98,6 +61,10 @@ alter table public.follows enable row level security;
 alter table public.collections enable row level security;
 alter table public.blocks enable row level security;
 
+-- Remove legacy broad policies before creating the Phase 8 policy set.
+drop policy if exists "profiles_client_update" on public.profiles;
+drop policy if exists "profiles_client_write" on public.profiles;
+drop policy if exists "profiles_public_read" on public.profiles;
 drop policy if exists "profiles public readable" on public.profiles;
 drop policy if exists "profiles own insert" on public.profiles;
 drop policy if exists "profiles own update" on public.profiles;
@@ -133,25 +100,21 @@ create policy "own events readable" on public.interest_events for select to auth
 create policy "own saves readable" on public.saves for select to authenticated using ((select auth.uid())::text = user_id);
 create policy "own saves insert" on public.saves for insert to authenticated with check ((select auth.uid())::text = user_id);
 create policy "own saves delete" on public.saves for delete to authenticated using ((select auth.uid())::text = user_id);
-
 create policy "own reactions readable" on public.reactions for select to authenticated using ((select auth.uid())::text = user_id);
 create policy "own reactions insert" on public.reactions for insert to authenticated with check ((select auth.uid())::text = user_id);
 create policy "own reactions delete" on public.reactions for delete to authenticated using ((select auth.uid())::text = user_id);
-
 create policy "follows readable" on public.follows for select to authenticated using ((select auth.uid())::text = follower_id or (select auth.uid())::text = following_id);
 create policy "follows own insert" on public.follows for insert to authenticated with check ((select auth.uid())::text = follower_id);
 create policy "follows own delete" on public.follows for delete to authenticated using ((select auth.uid())::text = follower_id);
-
 create policy "collections visible" on public.collections for select to authenticated using (visibility = 'public' or (select auth.uid())::text = owner_id);
 create policy "collections own insert" on public.collections for insert to authenticated with check ((select auth.uid())::text = owner_id);
 create policy "collections own update" on public.collections for update to authenticated using ((select auth.uid())::text = owner_id) with check ((select auth.uid())::text = owner_id);
 create policy "collections own delete" on public.collections for delete to authenticated using ((select auth.uid())::text = owner_id);
-
 create policy "own blocks readable" on public.blocks for select to authenticated using ((select auth.uid())::text = user_id);
 create policy "own blocks insert" on public.blocks for insert to authenticated with check ((select auth.uid())::text = user_id);
 create policy "own blocks delete" on public.blocks for delete to authenticated using ((select auth.uid())::text = user_id);
 
-revoke all on table public.profiles, public.posts, public.media, public.interest_events, public.reactions, public.saves, public.follows, public.collections, public.blocks from anon, authenticated;
+revoke all on table public.profiles, public.posts, public.media, public.interest_events, public.reactions, public.saves, public.follows, public.collections, public.blocks from public, anon, authenticated;
 grant select on public.profiles, public.posts, public.media to anon, authenticated;
 grant insert, update, delete on public.profiles to authenticated;
 grant insert, update, delete on public.posts, public.media to authenticated;
