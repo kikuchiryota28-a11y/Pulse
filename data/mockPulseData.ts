@@ -1,48 +1,59 @@
 import type { Post, Profile } from '@/types/pulse';
 
-/**
- * PULSE demo data is intentionally people-first.
- * Every post is something a person noticed, tried, saved, or wanted to show another person.
- */
+/** Human-authored demo content: each discovery belongs to a person with context. */
 export const profiles: Record<string, Profile> = {
-  mira: { id: 'profile-mira', username: 'mira.k', display_name: 'Mira K.', bio: 'Always taking the long way home.', avatar_url: 'https://i.pravatar.cc/160?img=47' },
-  ren: { id: 'profile-ren', username: 'ren.walks', display_name: 'Ren', bio: 'Tiny city finds + good coffee.', avatar_url: 'https://i.pravatar.cc/160?img=12' },
-  sora: { id: 'profile-sora', username: 'sora.notes', display_name: 'Sora', bio: 'Things I notice when everyone else is rushing.', avatar_url: 'https://i.pravatar.cc/160?img=32' },
-  kai: { id: 'profile-kai', username: 'kai.curiosity', display_name: 'Kai', bio: 'Questions, weird facts, and places worth a detour.', avatar_url: 'https://i.pravatar.cc/160?img=56' },
+  rena: { id: 'profile-rena', username: 'rena.walks', display_name: 'Rena Sato', bio: 'Tiny details that make familiar places feel new.', avatar_url: 'https://i.pravatar.cc/160?img=47' },
+  kento: { id: 'profile-kento', username: 'kento.jpg', display_name: 'Kento Mori', bio: 'Cafes, cameras, weird signs. Usually carrying a small camera.', avatar_url: 'https://i.pravatar.cc/160?img=12' },
+  mei: { id: 'profile-mei', username: 'mei.notes', display_name: 'Mei Tanaka', bio: 'Saving things I would otherwise forget five minutes later.', avatar_url: 'https://i.pravatar.cc/160?img=32' },
+  haru: { id: 'profile-haru', username: 'haru_after5', display_name: 'Haru Kimura', bio: 'One thing worth sending to a friend after school.', avatar_url: 'https://i.pravatar.cc/160?img=56' },
+  sora: { id: 'profile-sora', username: 'sora.builds', display_name: 'Sora Ito', bio: 'Maps, old tech, and accidental design decisions.', avatar_url: 'https://i.pravatar.cc/160?img=68' },
 };
 
 export const mockPulseData: Post[] = [
   {
-    id: 'post-midnight-vending-machine', author_id: profiles.mira.id, author: profiles.mira,
-    title: 'I found a vending machine that sells hot corn soup at 1am.',
-    description: 'I was walking home after missing the last train connection and saw this tiny machine glowing outside a laundromat. The soup was surprisingly good. I would never have found it on purpose.',
-    context: 'Tokyo · found on the walk home', visibility: 'public',
-    media: [{ id: 'media-midnight-vending', post_id: 'post-midnight-vending-machine', type: 'image', url: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=1600&q=88', width: 1600, height: 1067, alt: 'A small illuminated street scene at night' }],
+    id: 'post-vending-light', author_id: profiles.rena.id, author: profiles.rena,
+    title: 'I found a vending machine that lights up the sidewalk like a tiny stage.',
+    description: 'I noticed the light before I noticed the machine. It made the same street feel completely different for about thirty seconds.',
+    context: 'Tokyo · Nakano · found on the walk home', visibility: 'public', category: 'CITY',
+    media: [{ id: 'media-vending-light', post_id: 'post-vending-light', type: 'image', url: 'https://images.unsplash.com/photo-1540932239986-30128078f3c5?auto=format&fit=crop&w=1800&q=88', width: 1800, height: 1200, alt: 'A glowing vending machine on a city street at night' }],
+    reaction_counts: { loved: 24, mind_blown: 8, explore: 17, learned: 3 }, comment_count: 6, save_count: 41,
     created_at: '2026-09-13T09:20:00.000Z',
   },
   {
-    id: 'post-hidden-bookstore', author_id: profiles.ren.id, author: profiles.ren,
-    title: 'This tiny bookstore is hidden behind a normal-looking door.',
-    description: 'I noticed a handwritten “open” sign on a side street and followed it upstairs. There are maybe 300 books, one chair, and a cat that completely ignores customers. Somehow it is my favorite place this week.',
-    context: 'Koenji · 3 minutes from the main street', visibility: 'public',
-    media: [{ id: 'media-hidden-bookstore', post_id: 'post-hidden-bookstore', type: 'image', url: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=1600&q=88', width: 1600, height: 1067, alt: 'Shelves of books inside a cozy bookstore' }],
+    id: 'post-quiet-cafe', author_id: profiles.kento.id, author: profiles.kento,
+    title: 'This tiny cafe plays the same record every Sunday morning.',
+    description: 'I only went in because it started raining. The owner told me the record has been playing on Sundays for years. Now I kind of want to hear it again.',
+    context: 'Tokyo · Koenji · Sunday morning', visibility: 'public', category: 'PEOPLE',
+    media: [{ id: 'media-quiet-cafe', post_id: 'post-quiet-cafe', type: 'image', url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1800&q=88', width: 1800, height: 1200, alt: 'Warm small cafe interior' }],
+    reaction_counts: { loved: 31, mind_blown: 4, explore: 22, learned: 5 }, comment_count: 11, save_count: 52,
     created_at: '2026-09-12T13:10:00.000Z',
   },
   {
-    id: 'post-rain-window', author_id: profiles.sora.id, author: profiles.sora,
-    title: 'Rain made my usual train station look completely different.',
-    description: 'I was waiting for the train and noticed the lights reflected on the wet floor. Everyone was staring at their phones, so I took a photo. Now I kind of want to walk around the station instead of going straight home.',
-    context: 'Shinjuku · 18:42', visibility: 'public',
-    media: [{ id: 'media-rain-window', post_id: 'post-rain-window', type: 'image', url: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&w=1600&q=88', width: 1600, height: 1067, alt: 'Rain falling over a city street with reflections' }],
+    id: 'post-school-station', author_id: profiles.mei.id, author: profiles.mei,
+    title: 'I started taking one random station exit instead of the usual one.',
+    description: 'Today it added six minutes to my walk and I found a tiny second-hand bookshop I had never noticed. I would have missed it completely otherwise.',
+    context: 'Tokyo · after school · +6 min', visibility: 'public', category: 'ROUTINE',
+    media: [{ id: 'media-school-station', post_id: 'post-school-station', type: 'image', url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1800&q=88', width: 1800, height: 1200, alt: 'A city street seen from an unusual angle' }],
+    reaction_counts: { loved: 18, mind_blown: 6, explore: 29, learned: 2 }, comment_count: 8, save_count: 37,
     created_at: '2026-09-11T10:42:00.000Z',
   },
   {
-    id: 'post-strange-sky', author_id: profiles.kai.id, author: profiles.kai,
-    title: 'I looked up for once and found this weird cloud shape.',
-    description: 'Nothing scientific or spectacular — I was just waiting for a friend and happened to look up. Ten seconds later the shape was gone. Posting it because it reminded me how much interesting stuff disappears when I only look at my screen.',
-    context: 'Yokohama · waiting for a friend', visibility: 'public',
-    media: [{ id: 'media-strange-sky', post_id: 'post-strange-sky', type: 'image', url: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=1600&q=88', width: 1600, height: 1067, alt: 'Unusual cloud formations in a blue sky' }],
+    id: 'post-old-sign', author_id: profiles.haru.id, author: profiles.haru,
+    title: 'There is an old sign above this shop that nobody seems to have removed.',
+    description: 'The new store has been here for years, but the old lettering is still sitting above it. I like imagining what used to be here.',
+    context: 'Yokohama · Motomachi · spotted after 5pm', visibility: 'public', category: 'CITY',
+    media: [{ id: 'media-old-sign', post_id: 'post-old-sign', type: 'image', url: 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1800&q=88', width: 1800, height: 1200, alt: 'Distinctive old lettering on an urban building' }],
+    reaction_counts: { loved: 21, mind_blown: 12, explore: 25, learned: 7 }, comment_count: 9, save_count: 46,
     created_at: '2026-09-10T07:30:00.000Z',
+  },
+  {
+    id: 'post-old-camera', author_id: profiles.sora.id, author: profiles.sora,
+    title: 'Found a 2000s camera with ordinary photos still on it.',
+    description: 'The photos were just lunch, a dog, and a train window. Somehow that made the old camera much more interesting.',
+    context: 'Tokyo · Akihabara · second-hand electronics', visibility: 'public', category: 'PEOPLE',
+    media: [{ id: 'media-old-camera', post_id: 'post-old-camera', type: 'image', url: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1800&q=88', width: 1800, height: 1200, alt: 'Compact digital camera on a table' }],
+    reaction_counts: { loved: 27, mind_blown: 19, explore: 14, learned: 11 }, comment_count: 14, save_count: 63,
+    created_at: '2026-09-09T15:20:00.000Z',
   },
 ];
 
