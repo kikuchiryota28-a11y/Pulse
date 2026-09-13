@@ -13,8 +13,7 @@ import "../src/pulse-fluid-components.css";
 import "../src/pulse-fluid-screens.css";
 import "../src/pulse-fluid-final.css";
 import "../src/pulse-ui-reset.css";
-import "../src/pulse-hard-dark.css";
-import "../src/pulse-ultra-motion.css";
+import "../src/pulse-studio-fluid.css";
 import PulseMotion from "./PulseMotion";
 import MoveExperienceBridge from "../components/MoveExperienceBridge";
 import AuthGate from "../components/AuthGate";
@@ -29,8 +28,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="ja" className="dark" style={{ backgroundColor: "#030303" }}>
-      <body className="bg-[#030303] text-[#FAFAFA] antialiased min-h-screen" style={{ backgroundColor: "#030303", color: "#FAFAFA" }}>
+    <html lang="ja">
+      <body className="min-h-screen antialiased">
         <AuthGate>
           <PulseShell>
             <PulseMotion>{children}</PulseMotion>
