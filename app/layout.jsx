@@ -14,6 +14,7 @@ import "../src/pulse-fluid-screens.css";
 import "../src/pulse-fluid-final.css";
 import "../src/pulse-ui-reset.css";
 import "../src/pulse-studio-fluid.css";
+import "../src/pulse-studio-bento.css";
 import PulseMotion from "./PulseMotion";
 import MoveExperienceBridge from "../components/MoveExperienceBridge";
 import AuthGate from "../components/AuthGate";
