@@ -13,7 +13,7 @@ export const mockPulseData: Post[] = [
     title: 'Find a hidden detail in your town and leave the next clue.',
     description: 'A Pulse is not finished when you notice it. It becomes yours when you act, document what happened, and hand the next move to someone else.',
     context: 'Anywhere · designed for a real-world walk', visibility: 'public', pulse_status: 'active', pulse_number: 1,
-    action: 'Find one detail most people walk past. Leave a clue that helps the next person discover it without giving away the answer.', handoff_from: profiles.lena ?? profiles.ocean, handoff_count: 12,
+    action: 'Find one detail most people walk past. Leave a clue that helps the next person discover it without giving away the answer.', handoff_from: profiles.science, handoff_count: 12,
     media: [{ id: 'media-deep-sea', post_id: 'post-deep-sea', type: 'image', url: 'https://images.unsplash.com/photo-1551244072-5d12893278ab?auto=format&fit=crop&w=1800&q=88', width: 1800, height: 1200, alt: 'Deep blue ocean surface viewed from below' }],
   },
   {
