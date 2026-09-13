@@ -11,7 +11,7 @@ const tabs = [
   { label: 'YOU', href: '/you' },
 ];
 
-const spring = { type: 'spring', stiffness: 380, damping: 30 };
+const spring = { type: 'spring', stiffness: 300, damping: 25 };
 
 function getActiveTab(pathname) {
   if (pathname.startsWith('/explore')) return 'EXPLORE';
@@ -20,28 +20,36 @@ function getActiveTab(pathname) {
   return 'DISCOVER';
 }
 
+function Equalizer() {
+  return <span className="pulse-eq" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</span>;
+}
+
 export default function PulseShell({ children, activeTab }) {
   const pathname = usePathname();
   const currentTab = activeTab ?? getActiveTab(pathname);
 
-  return <div className="pulse-shell relative min-h-screen overflow-x-hidden bg-[#060608] text-[#FAFAFA] selection:bg-[#00FF87]/20 selection:text-white">
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      <div className="absolute -left-[18vw] -top-[20vh] h-[65vh] w-[65vw] rounded-full bg-[radial-gradient(circle,rgba(0,255,135,0.10)_0%,rgba(0,255,135,0.025)_38%,transparent_70%)] blur-[140px]" />
-      <div className="absolute -right-[15vw] top-[25vh] h-[70vh] w-[60vw] rounded-full bg-[radial-gradient(circle,rgba(112,76,255,0.07)_0%,rgba(112,76,255,0.02)_40%,transparent_72%)] blur-[150px]" />
+  return <div className="pulse-shell pulse-ultra-shell relative min-h-screen overflow-x-hidden bg-[#030303] text-[#FAFAFA] selection:bg-[#00FF87]/20 selection:text-white">
+    <div aria-hidden="true" className="pulse-ultra-ambient">
+      <div className="pulse-ultra-orb pulse-ultra-orb-a" />
+      <div className="pulse-ultra-orb pulse-ultra-orb-b" />
+      <div className="pulse-ultra-orb pulse-ultra-orb-c" />
     </div>
 
-    <header className="fixed inset-x-0 top-0 z-40 h-16 border-b border-white/[0.05] bg-[#060608]/80 backdrop-blur-2xl">
+    <header className="fixed inset-x-0 top-0 z-40 h-16 border-b border-white/[0.05] bg-[#030303]/78 backdrop-blur-2xl">
       <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between px-5 md:px-8">
         <Link href="/" className="flex items-center gap-3" aria-label="Pulse home">
           <span className="inline-block h-2 w-2 rounded-full bg-[#00FF87] shadow-[0_0_10px_#00FF87] animate-pulse" />
           <span className="font-black tracking-[0.24em] text-white">PULSE</span>
           <span className="hidden font-mono text-[10px] tracking-[0.2em] text-zinc-500 uppercase sm:block">SYS.RDY</span>
         </Link>
-        <nav className="flex items-center gap-5 font-mono text-[10px] tracking-[0.2em]" aria-label="System actions">
-          <Link href="/activity" className="hidden text-zinc-500 transition-colors hover:text-white sm:block">ACTIVITY</Link>
-          <Link href="/account" className="text-zinc-400 transition-colors hover:text-white">ACCOUNT</Link>
-          <Link href="/create" className="text-[#00FF87] transition-colors hover:text-white">+ START</Link>
-        </nav>
+        <div className="flex items-center gap-4">
+          <Equalizer />
+          <nav className="flex items-center gap-5 font-mono text-[10px] tracking-[0.2em]" aria-label="System actions">
+            <Link href="/activity" className="hidden text-zinc-500 transition-colors hover:text-white sm:block">ACTIVITY</Link>
+            <Link href="/account" className="text-zinc-400 transition-colors hover:text-white">ACCOUNT</Link>
+            <Link href="/create" className="text-[#00FF87] transition-colors hover:text-white">+ START</Link>
+          </nav>
+        </div>
       </div>
     </header>
 
