@@ -7,12 +7,12 @@ import type { Post, ReactionType } from '@/types/pulse';
 import { AsyncMedia } from '@/components/ui/AsyncMedia';
 
 interface DiscoveryCardProps { post: Post; index?: number; onOpen?: (post: Post) => void; }
-
 const spring = { type: 'spring', stiffness: 220, damping: 24, mass: 0.8 } as const;
 const reactions: Array<{ type: ReactionType; label: string; icon: typeof Heart }> = [
   { type: 'loved', label: 'Love', icon: Heart },
   { type: 'mind_blown', label: 'Whoa', icon: Sparkles },
   { type: 'explore', label: 'Explore', icon: Lightbulb },
+  { type: 'learned', label: 'Learned', icon: Sparkles },
 ];
 
 export function DiscoveryCard({ post, index = 0, onOpen }: DiscoveryCardProps) {
@@ -33,11 +33,11 @@ export function DiscoveryCard({ post, index = 0, onOpen }: DiscoveryCardProps) {
   return (
     <motion.article layoutId={`post-${post.id}`} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: index * 0.06 }} className="overflow-hidden rounded-[24px] border border-white/[.06] bg-[#111114]">
       <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
-        <a href={author ? `/u/${author.username}` : '#'} onClick={(event) => event.stopPropagation()} className="flex min-w-0 items-center gap-3 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40">
+        <a href={author ? `/u/${author.username}` : '#'} onClick={(event) => event.stopPropagation()} className="flex min-w-0 items-center gap-3 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40">
           {author?.avatar_url ? <img src={author.avatar_url} alt="" loading="lazy" decoding="async" className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/10" /> : <div className="h-10 w-10 shrink-0 rounded-full bg-white/10" />}
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold text-white">{author?.display_name ?? 'PULSE member'}</span>
-            <span className="block truncate text-xs text-white/35">@{author?.username ?? 'member'}</span>
+            <span className="block truncate text-xs text-white/35">@{author?.username ?? 'member'}{author?.bio ? ` · ${author.bio}` : ''}</span>
           </span>
         </a>
         <span className="shrink-0 text-[11px] text-white/25">shared a find</span>
@@ -45,9 +45,7 @@ export function DiscoveryCard({ post, index = 0, onOpen }: DiscoveryCardProps) {
 
       <button type="button" onClick={() => onOpen?.(post)} className="block w-full cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/30">
         <motion.div whileHover={{ scale: 1.012 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} className="relative overflow-hidden bg-[#0d0d10]">
-          {media?.type === 'video' ? (
-            <div className="relative aspect-[16/10] overflow-hidden"><video src={media.url} poster={media.thumbnail_url ?? undefined} muted playsInline loop autoPlay preload="metadata" className="absolute inset-0 h-full w-full object-cover" /></div>
-          ) : media?.url ? <AsyncMedia src={media.url} alt={media.alt ?? post.title} width={media.width} height={media.height} /> : <div className="aspect-[16/10]" />}
+          {media?.type === 'video' ? <div className="relative aspect-[16/10] overflow-hidden"><video src={media.url} poster={media.thumbnail_url ?? undefined} muted playsInline loop autoPlay preload="metadata" className="absolute inset-0 h-full w-full object-cover" /></div> : media?.url ? <AsyncMedia src={media.url} alt={media.alt ?? post.title} width={media.width} height={media.height} /> : <div className="aspect-[16/10]" />}
         </motion.div>
       </button>
 
