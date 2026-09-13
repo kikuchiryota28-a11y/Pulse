@@ -1,5 +1,6 @@
 /* Pulse STEP 5 — Detail media containment + feed typography */
 
+/* STEP 6: canonical detail media frame. */
 .pulse-detail-media {
   position: relative !important;
   width: 100% !important;
@@ -8,7 +9,7 @@
   overflow: hidden !important;
   border-radius: 16px !important;
   border: 1px solid rgba(255,255,255,.10) !important;
-  background: #08080A !important;
+  background: transparent !important;
 }
 
 .pulse-detail-media img {
@@ -37,21 +38,30 @@
   box-shadow: 0 0 26px rgba(0,255,135,.46) !important;
 }
 
+/* STEP 6: deterministic card copy clamp. The card shade supplies the dark readability layer. */
 .explore-card-content p {
   display: -webkit-box !important;
   -webkit-box-orient: vertical !important;
-  -webkit-line-clamp: 5 !important;
+  -webkit-line-clamp: 4 !important;
+  line-clamp: 4 !important;
   overflow: hidden !important;
   font-size: 15px !important;
   line-height: 1.625 !important;
+  max-height: calc(1.625em * 4) !important;
 }
 
+/* Explicit gradient readability layer behind card content. */
+.explore-card-shade {
+  background: linear-gradient(to top, rgba(0,0,0,.90) 0%, rgba(0,0,0,.60) 52%, transparent 100%) !important;
+}
+
+/* STEP 6: detail modal must sit above the bottom navigation. */
 .pulse-detail-backdrop {
-  z-index: 90 !important;
+  z-index: 50 !important;
 }
 
 .pulse-detail-drawer {
-  z-index: 91 !important;
+  z-index: 50 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
