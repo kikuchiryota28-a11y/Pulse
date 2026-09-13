@@ -5,6 +5,7 @@ import type { Media, Post, Profile } from '@/types/pulse';
 
 type EventRow = { post_id: string; event_type: string; action_weight: number; session_id: string | null; created_at: string };
 type PostRow = Omit<Post, 'media' | 'author'> & { media: Media[] | null; discovery_distance: number; topic: string | null; quality_score: number };
+type ProfileRow = Omit<Profile, 'id'> & { actor_id: string };
 
 const DISTANCE_TARGETS: Array<{ distances: DiscoveryDistance[]; ratio: number }> = [
   { distances: [0, 1], ratio: 0.4 },
@@ -133,7 +134,17 @@ export async function GET(request: NextRequest) {
   const { data: profiles, error: profileError } = await supabase.from('profiles').select('actor_id,username,display_name,bio,avatar_url').in('actor_id', authorIds);
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
 
-  const profileMap = new Map((profiles ?? []).map((profile: Profile & { actor_id?: string }) => [profile.actor_id ?? profile.id, profile]));
+  const profileMap = new Map<string, Profile>();
+  for (const profile of (profiles ?? []) as ProfileRow[]) {
+    profileMap.set(profile.actor_id, {
+      id: profile.actor_id,
+      username: profile.username,
+      display_name: profile.display_name,
+      bio: profile.bio,
+      avatar_url: profile.avatar_url,
+    });
+  }
+
   const feed = selected.map((item) => ({ ...item.post, author: profileMap.get(item.post.author_id) ?? undefined, discoveryScore: item.discoveryScore, distance: item.distance }));
 
   return NextResponse.json({ feed, distribution: DISTANCE_TARGETS, sessionId });
